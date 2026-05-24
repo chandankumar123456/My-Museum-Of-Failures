@@ -1,0 +1,23 @@
+{
+  "name": "museum-of-failures",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "db:generate": "pnpm --filter @museum/backend db:generate",
+    "db:push": "pnpm --filter @museum/backend db:push",
+    "db:migrate": "pnpm --filter @museum/backend db:migrate",
+    "db:studio": "pnpm --filter @museum/backend db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "prettier": "^3.5.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@11.1.2"
+}
