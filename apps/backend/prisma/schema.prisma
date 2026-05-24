@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ExhibitionCategory {
+  startup_failure
+  academic_collapse
+  relationship_failure
+  burnout
+  career_regret
+  missed_opportunity
+  financial_mistake
+  family_conflict
+  creative_failure
+  identity_crisis
+  mental_exhaustion
+  failed_side_project
+  interview_rejection
+  betrayal
+  unrealized_dream
+}
+
+enum MuseumRoomSlug {
+  hall_of_broken_dreams
+  startup_cemetery
+  burnout_basement
+  academic_ruins
+  gallery_of_lost_potential
+  the_regret_archive
+  abandoned_futures_wing
+  relationship_graveyard
+}
+
+enum EmotionalReactionType {
+  i_relate
+  i_survived_this_too
+  still_recovering
+  this_hurt
+  you_were_brave
+  i_understand
+}
+
+enum EndingStatusType {
+  destroyed_me
+  changed_me
+  still_defining_me
+  made_me_stronger
+  still_unresolved
+}
+
+enum RecoveryStatusType {
+  recovered
+  retried
+  pivoted
+  still_failing
+  gave_up
+  healing
+}
+
+enum VisibilityMode {
+  anonymous
+  pseudonym
+  real_name
+}
+
+enum ArtifactType {
+  image
+  audio
+  pdf
+  code
+  screenshot
+  note
+}
+
+model User {
+  id              String        @id @default(cuid())
+  email           String?       @unique
+  displayName     String?
+  avatarUrl       String?
+  identityMode    VisibilityMode @default(anonymous)
+  pseudonym       String?
+  isAnonymous     Boolean       @default(false)
+  legacyExhibitId String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  exhibits          Exhibit[]
+  reactions         ExhibitReaction[]
+  timeCapsules      TimeCapsule[]
+  emotionalAnalytics EmotionalAnalytics[]
+  legacyExhibit     Exhibit?    @relation("LegacyExhibit", fields: [legacyExhibitId], references: [id])
+
+  @@map("users")
+}
+
+model Exhibit {
+  id               String           @id @default(cuid())
+  exhibitId        String           @unique @default(cuid())
+  title            String
+  category         ExhibitionCategory
+  story            String
+  expectedOutcome  String
+  actualOutcome    String
+  lessonLearned    String
+  emotionalState   String
+  painLevel        Int              @default(5)
+  regretLevel      Int              @default(5)
+  recoveryProgress Int              @default(0)
+  stillHurts       Boolean          @default(true)
+  wouldRetry       Boolean          @default(false)
+  endingStatus     EndingStatusType
+  recoveryStatus   RecoveryStatusType
+  visibilityMode   VisibilityMode
+  emotionalTags    String[]
+  retryCount       Int              @default(0)
+  isOneSentence    Boolean          @default(false)
+  isUnfinished     Boolean          @default(false)
+  decayLevel       Int              @default(0)
+  lastDecayUpdate  DateTime         @default(now())
+  isHidden         Boolean          @default(false)
+  hiddenUnlockAt   DateTime?
+  viewCount        Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  userId      String?
+  roomId      String?
+
+  user        User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room        MuseumRoom? @relation(fields: [roomId], references: [id])
+  legacyOf    User?       @relation("LegacyExhibit")
+
+  artifacts     Artifact[]
+  reactions     ExhibitReaction[]
+  aiReflections AIReflection[]
+
+  @@index([category])
+  @@index([roomId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([painLevel])
+  @@index([endingStatus])
+  @@map("exhibits")
+}
+
+model MuseumRoom {
+  id          String         @id @default(cuid())
+  slug        MuseumRoomSlug @unique
+  name        String
+  description String
+  ambience    String         @default("default")
+  lighting    String         @default("dim")
+  isHidden    Boolean        @default(false)
+  orderIndex  Int            @default(0)
+  createdAt   DateTime       @default(now())
+
+  exhibits Exhibit[]
+
+  @@map("museum_rooms")
+}
+
+model Artifact {
+  id        String      @id @default(cuid())
+  type      ArtifactType
+  url       String
+  filename  String
+  mimeType  String
+  size      Int
+  width     Int?
+  height    Int?
+  language  String?
+  content   String?
+  decayed   Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  exhibitId String
+  exhibit   Exhibit     @relation(fields: [exhibitId], references: [id], onDelete: Cascade)
+
+  @@index([exhibitId])
+  @@map("artifacts")
+}
+
+model ExhibitReaction {
+  id        String               @id @default(cuid())
+  reaction  EmotionalReactionType
+  createdAt DateTime             @default(now())
+
+  exhibitId String
+  userId    String?
+
+  exhibit   Exhibit              @relation(fields: [exhibitId], references: [id], onDelete: Cascade)
+  user      User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([exhibitId, userId, reaction])
+  @@index([exhibitId])
+  @@map("exhibit_reactions")
+}
+
+model AIReflection {
+  id               String   @id @default(cuid())
+  emotionalSummary String
+  patterns         String[]
+  reframing        String
+  observations     String
+  createdAt        DateTime @default(now())
+
+  exhibitId String
+  exhibit   Exhibit  @relation(fields: [exhibitId], references: [id], onDelete: Cascade)
+
+  @@index([exhibitId])
+  @@map("ai_reflections")
+}
+
+model TimeCapsule {
+  id         String   @id @default(cuid())
+  title      String
+  message    String
+  unlockDate DateTime
+  isLocked   Boolean  @default(true)
+  openedAt   DateTime?
+  createdAt  DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([unlockDate])
+  @@map("time_capsules")
+}
+
+model EmotionalAnalytics {
+  id              String   @id @default(cuid())
+  totalPain       Int      @default(0)
+  totalRegret     Int      @default(0)
+  dominantEmotion String?
+  commonPattern   String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("emotional_analytics")
+}
+
+model CuratedExhibition {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  theme       String
+  isActive    Boolean  @default(true)
+  startsAt    DateTime @default(now())
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@map("curated_exhibitions")
+}
+
+model MuseumState {
+  id        String   @id @default(cuid())
+  weather   String   @default("mist")
+  lighting  String   @default("dim")
+  intensity String   @default("calm")
+  updatedAt DateTime @updatedAt
+
+  @@map("museum_state")
+}
