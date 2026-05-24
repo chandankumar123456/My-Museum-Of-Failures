@@ -1,0 +1,120 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-museum-50: #f7f5f0;
+  --color-museum-100: #e8e3d8;
+  --color-museum-200: #d3cbbe;
+  --color-museum-300: #b8ad9a;
+  --color-museum-400: #9d9079;
+  --color-museum-500: #8a7b63;
+  --color-museum-600: #786a54;
+  --color-museum-700: #635647;
+  --color-museum-800: #52473c;
+  --color-museum-900: #463d34;
+  --color-museum-950: #2a2420;
+
+  --color-ember: #d4592b;
+  --color-ember-light: #e87a4a;
+  --color-ember-dark: #a8431e;
+
+  --color-void: #0d0b0a;
+  --color-void-light: #1a1513;
+  --color-shadow: #1e1a18;
+
+  --color-whisper: #c4bcb0;
+  --color-whisper-light: #e0dad0;
+  --color-whisper-dark: #8a7b63;
+
+  --color-rot: #5c3a2e;
+  --color-rot-light: #7a4f3f;
+  --color-fade: #9a8b7a;
+
+  --font-serif: 'EB Garamond', 'Garamond', 'Georgia', serif;
+  --font-sans: 'Inter', 'System-ui', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --animate-dust-drift: dust-drift 20s ease-in-out infinite;
+  --animate-flicker: flicker 3s ease-in-out infinite;
+  --animate-pulse-slow: pulse-slow 6s ease-in-out infinite;
+  --animate-breathe: breathe 8s ease-in-out infinite;
+  --animate-glow: glow 4s ease-in-out infinite;
+
+  @keyframes dust-drift {
+    0%, 100% { transform: translate(0, 0); opacity: 0.3; }
+    25% { transform: translate(10px, -5px); opacity: 0.5; }
+    50% { transform: translate(-5px, -10px); opacity: 0.2; }
+    75% { transform: translate(15px, 5px); opacity: 0.4; }
+  }
+
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+    92% { opacity: 0.95; }
+    94% { opacity: 0.7; }
+    96% { opacity: 0.9; }
+    98% { opacity: 0.6; }
+  }
+
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.005); }
+  }
+
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(212, 89, 43, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(212, 89, 43, 0.4); }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-museum-800;
+  }
+
+  body {
+    @apply bg-void text-whisper font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-ember/30 text-whisper-light;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-void;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-museum-800 rounded-full hover:bg-museum-700;
+  }
+}
+
+@layer components {
+  .museum-glow {
+    @apply shadow-[0_0_15px_rgba(212,89,43,0.15)];
+  }
+
+  .museum-card {
+    @apply bg-void-light border border-museum-800 rounded-sm;
+  }
+
+  .museum-text {
+    @apply font-serif text-whisper;
+  }
+
+  .glass-pane {
+    @apply bg-void-light/60 backdrop-blur-sm border border-museum-800/50;
+  }
+
+  .decayed-text {
+    @apply opacity-70;
+  }
+}
