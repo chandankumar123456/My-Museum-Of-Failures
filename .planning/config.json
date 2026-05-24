@@ -1,0 +1,14 @@
+{
+  "mode": "yolo",
+  "depth": "comprehensive",
+  "parallelization": true,
+  "projectName": "My Museum of Failures",
+  "techStack": {
+    "frontend": ["Next.js", "TypeScript", "TailwindCSS", "shadcn/ui", "Framer Motion", "React Three Fiber", "Drei", "Three.js", "Zustand", "TanStack Query", "Howler.js"],
+    "backend": ["Node.js", "NestJS", "tRPC", "Prisma", "PostgreSQL", "Socket.IO", "Cloudflare R2"],
+    "auth": "Better Auth",
+    "ai": "Vercel AI SDK + OpenAI",
+    "deployment": ["Vercel", "Railway", "Neon"]
+  },
+  "createdAt": "2026-05-24"
+}
