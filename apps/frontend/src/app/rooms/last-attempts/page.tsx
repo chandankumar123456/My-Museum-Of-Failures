@@ -5,14 +5,16 @@ import { MuseumLayout } from '@/components/museum/museum-layout';
 import { ExhibitCard } from '@/components/exhibits/exhibit-card';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
+import type { ExhibitView } from '@museum/shared';
 
 export default function LastAttemptsPage() {
-  const [exhibits, setExhibits] = useState<any[]>([]);
+  const [exhibits, setExhibits] = useState<ExhibitView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.rooms.lastAttempts()
-      .then((data) => setExhibits(Array.isArray(data) ? data : []))
+    api.rooms
+      .lastAttempts()
+      .then((data) => setExhibits(Array.isArray(data) ? (data as ExhibitView[]) : []))
       .catch(() => setExhibits([]))
       .finally(() => setLoading(false));
   }, []);
@@ -37,7 +39,7 @@ export default function LastAttemptsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {exhibits.map((exhibit: any, i: number) => (
+            {exhibits.map((exhibit, i) => (
               <ExhibitCard key={exhibit.id} exhibit={exhibit} index={i} />
             ))}
           </div>
