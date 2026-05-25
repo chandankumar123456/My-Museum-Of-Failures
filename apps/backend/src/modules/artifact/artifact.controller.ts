@@ -1,7 +1,31 @@
-import { Controller, Post, Get, Param, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
+  BadRequestException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ArtifactService } from './artifact.service';
 import { ArtifactType } from '@prisma/client';
+
+/**
+ * Per-type accepted MIME prefixes. Anything that doesn't match is
+ * rejected before it touches R2.
+ */
+const TYPE_MIME_PATTERNS: Record<ArtifactType, RegExp> = {
+  image: /^image\/(png|jpe?g|gif|webp|avif)$/,
+  screenshot: /^image\/(png|jpe?g|webp)$/,
+  audio: /^audio\/(mpeg|mp4|ogg|wav|webm)$/,
+  pdf: /^application\/pdf$/,
+  code: /^(text\/.+|application\/(json|xml|javascript|typescript))$/,
+  note: /^(text\/.+|application\/json)$/,
+};
 
 @Controller('artifacts')
 export class ArtifactController {
@@ -16,11 +40,21 @@ export class ArtifactController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /^(image|audio|application|text)\/.+$/ }),
         ],
       }),
     )
     file: Express.Multer.File,
   ) {
+    const pattern = TYPE_MIME_PATTERNS[type];
+    if (!pattern) {
+      throw new BadRequestException(`Unsupported artifact type: ${type}`);
+    }
+    if (!pattern.test(file.mimetype)) {
+      throw new BadRequestException(
+        `MIME type ${file.mimetype} is not allowed for artifact type ${type}`,
+      );
+    }
     return this.artifactService.uploadArtifact(exhibitId, file, type);
   }
 
