@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CATEGORIES, ENDING_STATUSES, RECOVERY_STATUSES } from '@/lib/constants';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface ExhibitFormProps {
-  onSuccess?: (exhibit: any) => void;
+  onSuccess?: (exhibit: unknown) => void;
 }
 
 export function ExhibitForm({ onSuccess }: ExhibitFormProps) {
+  const { userId } = useAuthStore();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     title: '',
@@ -35,7 +37,7 @@ export function ExhibitForm({ onSuccess }: ExhibitFormProps) {
 
   const steps = ['Start', 'The Story', 'The Contrast', 'Emotions', 'Review'];
 
-  const updateField = (field: string, value: any) => {
+  const updateField = <K extends keyof typeof form>(field: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -54,9 +56,9 @@ export function ExhibitForm({ onSuccess }: ExhibitFormProps) {
     setSubmitting(true);
     setError('');
     try {
-      const exhibit = await api.exhibits.create(form);
+      const exhibit = await api.exhibits.create({ ...form, userId });
       onSuccess?.(exhibit);
-    } catch (e) {
+    } catch {
       setError('Failed to create exhibit. Please try again.');
     } finally {
       setSubmitting(false);
