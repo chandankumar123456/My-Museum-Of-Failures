@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import type { ExhibitView } from '@museum/shared';
 import { formatDate, getExhibitIdDisplay, getCategoryLabel, getEndingStatusColor } from '@/lib/utils';
 
-export function ExhibitDetail({ exhibit }: { exhibit: any }) {
+export function ExhibitDetail({ exhibit }: { exhibit: ExhibitView | null | undefined }) {
   if (!exhibit) return null;
 
   return (
