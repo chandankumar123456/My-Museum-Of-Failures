@@ -66,4 +66,31 @@ describe('ExhibitService.findAll', () => {
       emotionalTags: { hasSome: ['fear', 'shame'] },
     });
   });
+
+  it('coerces string limit/offset coming from query strings to numbers', async () => {
+    // Simulate what NestJS @Query() actually delivers: raw strings.
+    await service.findAll({
+      limit: '50' as unknown as number,
+      offset: '10' as unknown as number,
+    });
+    expect(prisma.calls[0].take).toBe(50);
+    expect(prisma.calls[0].skip).toBe(10);
+  });
+
+  it('caps limit at 100 and clamps to >= 1', async () => {
+    await service.findAll({ limit: '500' as unknown as number });
+    expect(prisma.calls[0].take).toBe(100);
+
+    await service.findAll({ limit: '0' as unknown as number });
+    expect(prisma.calls[1].take).toBe(1);
+  });
+
+  it('parses comma-separated emotionalTags from query strings', async () => {
+    await service.findAll({
+      emotionalTags: 'fear, shame ,regret' as unknown as string[],
+    });
+    expect(prisma.calls[0].where).toMatchObject({
+      emotionalTags: { hasSome: ['fear', 'shame', 'regret'] },
+    });
+  });
 });
