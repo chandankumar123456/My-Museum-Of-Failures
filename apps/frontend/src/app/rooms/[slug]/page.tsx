@@ -8,10 +8,19 @@ import { ExhibitCard } from '@/components/exhibits/exhibit-card';
 import { MUSEUM_ROOMS } from '@/lib/constants';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
+import type { ExhibitView } from '@museum/shared';
+
+interface RoomDetailView {
+  id: string;
+  name: string;
+  description: string;
+  exhibits: ExhibitView[];
+  _count?: { exhibits: number };
+}
 
 export default function RoomPage() {
   const params = useParams();
-  const [roomData, setRoomData] = useState<any>(null);
+  const [roomData, setRoomData] = useState<RoomDetailView | null>(null);
   const [loading, setLoading] = useState(true);
 
   const roomInfo = MUSEUM_ROOMS.find((r) => r.slug === params?.slug);
@@ -19,8 +28,9 @@ export default function RoomPage() {
   useEffect(() => {
     if (!params?.slug) return;
     setLoading(true);
-    api.rooms.get(params.slug as string)
-      .then((data) => setRoomData(data))
+    api.rooms
+      .get(params.slug as string)
+      .then((data) => setRoomData(data as RoomDetailView))
       .catch(() => setRoomData(null))
       .finally(() => setLoading(false));
   }, [params?.slug]);
@@ -56,7 +66,7 @@ export default function RoomPage() {
             </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {roomData?.exhibits?.map((exhibit: any, i: number) => (
+              {roomData?.exhibits?.map((exhibit, i) => (
                 <ExhibitCard key={exhibit.id} exhibit={exhibit} index={i} />
               ))}
               {roomData?.exhibits?.length === 0 && (
