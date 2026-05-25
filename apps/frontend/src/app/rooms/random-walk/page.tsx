@@ -5,20 +5,24 @@ import { MuseumLayout } from '@/components/museum/museum-layout';
 import { ExhibitCard } from '@/components/exhibits/exhibit-card';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
+import type { ExhibitView } from '@museum/shared';
 
 export default function RandomWalkPage() {
-  const [exhibits, setExhibits] = useState<any[]>([]);
+  const [exhibits, setExhibits] = useState<ExhibitView[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadRandom = () => {
     setLoading(true);
-    api.rooms.randomWalk()
-      .then((data) => setExhibits(Array.isArray(data) ? data : []))
+    api.rooms
+      .randomWalk()
+      .then((data) => setExhibits(Array.isArray(data) ? (data as ExhibitView[]) : []))
       .catch(() => setExhibits([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadRandom(); }, []);
+  useEffect(() => {
+    loadRandom();
+  }, []);
 
   return (
     <MuseumLayout>
@@ -47,7 +51,7 @@ export default function RandomWalkPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {exhibits.map((exhibit: any, i: number) => (
+            {exhibits.map((exhibit, i) => (
               <ExhibitCard key={exhibit.id} exhibit={exhibit} index={i} />
             ))}
           </div>
