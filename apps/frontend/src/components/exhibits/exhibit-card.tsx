@@ -2,27 +2,11 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import type { ExhibitView } from '@museum/shared';
 import { getCategoryLabel, getEndingStatusColor, getExhibitIdDisplay, formatDate } from '@/lib/utils';
 
 interface ExhibitCardProps {
-  exhibit: {
-    id: string;
-    exhibitId: string;
-    title: string;
-    category: string;
-    endingStatus: string;
-    painLevel: number;
-    createdAt: string;
-    decayLevel?: number;
-    story?: string;
-    lessonLearned?: string;
-    stillHurts?: boolean;
-    wouldRetry?: boolean;
-    recoveryStatus?: string;
-    artifacts?: any[];
-    reactions?: any[];
-    room?: { name: string } | null;
-  };
+  exhibit: ExhibitView;
   index?: number;
 }
 
@@ -36,7 +20,7 @@ export function ExhibitCard({ exhibit, index = 0 }: ExhibitCardProps) {
     'opacity-50 blur-[0.8px]',
   ];
 
-  const decayLevel = Math.min(exhibit.decayLevel || 0, 5);
+  const decayLevel = Math.min(exhibit.decayLevel ?? 0, 5);
 
   return (
     <motion.div
@@ -81,26 +65,18 @@ export function ExhibitCard({ exhibit, index = 0 }: ExhibitCardProps) {
               {getCategoryLabel(exhibit.category)}
             </span>
 
-            <span className={`${getEndingStatusColor(exhibit.endingStatus)}`}>
+            <span className={getEndingStatusColor(exhibit.endingStatus)}>
               {exhibit.endingStatus?.replace(/_/g, ' ')}
             </span>
 
-            <span className="text-museum-600">
-              Pain {exhibit.painLevel}/10
-            </span>
+            <span className="text-museum-600">Pain {exhibit.painLevel}/10</span>
 
-            <span className="text-museum-600 ml-auto">
-              {formatDate(exhibit.createdAt)}
-            </span>
+            <span className="text-museum-600 ml-auto">{formatDate(exhibit.createdAt)}</span>
           </div>
 
           <div className="mt-3 flex items-center gap-3 text-xs text-museum-700">
-            {exhibit.reactions && (
-              <span>{exhibit.reactions.length} reactions</span>
-            )}
-            {exhibit.room && (
-              <span>{exhibit.room.name}</span>
-            )}
+            {exhibit.reactions && <span>{exhibit.reactions.length} reactions</span>}
+            {exhibit.room && <span>{exhibit.room.name}</span>}
           </div>
         </div>
       </Link>
