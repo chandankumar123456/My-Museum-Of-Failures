@@ -1,6 +1,5 @@
 import { Controller, Get, Post, Body, Param, Put, Delete, Query } from '@nestjs/common';
-import { ExhibitService, CreateExhibitDto } from './exhibit.service';
-import { ExhibitionCategory, EndingStatusType, RecoveryStatusType } from '@prisma/client';
+import { ExhibitService, type CreateExhibitDto, type ExhibitFilters } from './exhibit.service';
 
 @Controller('exhibits')
 export class ExhibitController {
@@ -12,7 +11,7 @@ export class ExhibitController {
   }
 
   @Get()
-  findAll(@Query() query: any) {
+  findAll(@Query() query: ExhibitFilters) {
     return this.exhibitService.findAll(query);
   }
 
