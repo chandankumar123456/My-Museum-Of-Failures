@@ -6,9 +6,10 @@ import { ExhibitCard } from '@/components/exhibits/exhibit-card';
 import { api } from '@/lib/api';
 import { CATEGORIES, ENDING_STATUSES } from '@/lib/constants';
 import { motion } from 'framer-motion';
+import type { ExhibitView, ExhibitListView } from '@museum/shared';
 
 export default function ExhibitsPage() {
-  const [exhibits, setExhibits] = useState<any[]>([]);
+  const [exhibits, setExhibits] = useState<ExhibitView[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('');
   const [endingStatus, setEndingStatus] = useState('');
@@ -22,8 +23,9 @@ export default function ExhibitsPage() {
     if (search) params.set('search', search);
     params.set('limit', '50');
 
-    api.exhibits.list(params.toString())
-      .then((data) => setExhibits(data.exhibits || []))
+    api.exhibits
+      .list(params.toString())
+      .then((data) => setExhibits((data as ExhibitListView).exhibits ?? []))
       .catch(() => setExhibits([]))
       .finally(() => setLoading(false));
   }, [category, endingStatus, search]);
@@ -96,7 +98,7 @@ export default function ExhibitsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {exhibits.map((exhibit: any, i: number) => (
+            {exhibits.map((exhibit, i) => (
               <ExhibitCard key={exhibit.id} exhibit={exhibit} index={i} />
             ))}
           </div>
