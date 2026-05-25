@@ -5,6 +5,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "db:generate": "pnpm --filter @museum/backend db:generate",
     "db:push": "pnpm --filter @museum/backend db:push",
