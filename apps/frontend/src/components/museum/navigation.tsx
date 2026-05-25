@@ -7,6 +7,7 @@ import { useAudioStore } from '@/stores/audio-store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { IdentityBadge } from '@/components/auth/identity-badge';
+import { useAuthStore } from '@/stores/auth-store';
 
 const navItems = [
   { href: '/exhibits', label: 'Exhibits' },
@@ -19,6 +20,7 @@ const navItems = [
 export function MuseumNavigation() {
   const pathname = usePathname();
   const { isMuted, toggleMute } = useAudioStore();
+  const isAnonymous = useAuthStore((s) => s.isAnonymous);
   const [isOpen, setIsOpen] = useState(false);
 
   const linkClass = (href: string) =>
@@ -46,6 +48,14 @@ export function MuseumNavigation() {
         </div>
 
         <div className="flex items-center gap-4">
+          {isAnonymous && pathname !== '/auth' && (
+            <Link
+              href="/auth"
+              className="hidden sm:inline text-xs uppercase tracking-wider text-whisper-dark hover:text-ember transition-colors"
+            >
+              Sign in
+            </Link>
+          )}
           <IdentityBadge />
           <button
             onClick={toggleMute}
