@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api';
 
@@ -9,15 +9,43 @@ import { api } from '@/lib/api';
  * that require user context (time capsules, legacy vault, reaction
  * de-duplication) work without forcing sign-up.
  *
- * Once the backend is unreachable or the userId already exists in
- * localStorage, this silently no-ops.
+ * Two race conditions guarded against:
+ *  1. zustand `persist` middleware hydrates from localStorage on the
+ *     client; on Next.js the SSR pass shows `userId: null`. We wait
+ *     for `hasHydrated()` before deciding whether to create a new
+ *     anonymous user — otherwise a hard reload would briefly believe
+ *     the visitor has no identity and call `/auth/anonymous` again,
+ *     overwriting the stored one with a brand-new user.
+ *  2. The bootstrap fetch itself is fired exactly once via a ref.
+ *
+ * If the backend is unreachable, this silently no-ops and the
+ * IdentityBadge will render `offline` until next mount.
  */
 export function AuthBootstrap() {
   const { userId, setUser } = useAuthStore();
+  const [hydrated, setHydrated] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return useAuthStore.persist?.hasHydrated() ?? true;
+  });
   const attempted = useRef(false);
 
   useEffect(() => {
-    if (userId || attempted.current) return;
+    if (hydrated) return;
+    const persist = useAuthStore.persist;
+    if (!persist) {
+      setHydrated(true);
+      return;
+    }
+    if (persist.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
+    const unsub = persist.onFinishHydration(() => setHydrated(true));
+    return unsub;
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || userId || attempted.current) return;
     attempted.current = true;
 
     api.auth
@@ -30,10 +58,10 @@ export function AuthBootstrap() {
         });
       })
       .catch(() => {
-        // The backend may be offline during local dev. The UI will fall back
-        // to "sign-in required" messaging until it becomes available again.
+        // Backend may be offline during local dev; UI falls back to
+        // 'offline' messaging until the next reload.
       });
-  }, [userId, setUser]);
+  }, [hydrated, userId, setUser]);
 
   return null;
 }
