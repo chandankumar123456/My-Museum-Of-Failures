@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import type { TimeCapsule } from '@prisma/client';
+
+type LockedCapsule = Omit<TimeCapsule, 'message'> & { message: null; locked: true };
+type CapsulesView = { unlocked: TimeCapsule[]; locked: LockedCapsule[] };
 
 @Injectable()
 export class TimeCapsuleService {
@@ -17,7 +21,7 @@ export class TimeCapsuleService {
     });
   }
 
-  async getUserCapsules(userId: string) {
+  async getUserCapsules(userId: string): Promise<CapsulesView> {
     const now = new Date();
 
     const capsules = await this.prisma.timeCapsule.findMany({
@@ -25,8 +29,8 @@ export class TimeCapsuleService {
       orderBy: { unlockDate: 'asc' },
     });
 
-    const unlocked: any[] = [];
-    const locked: any[] = [];
+    const unlocked: TimeCapsule[] = [];
+    const locked: LockedCapsule[] = [];
 
     for (const capsule of capsules) {
       if (capsule.unlockDate <= now && capsule.isLocked) {
@@ -41,8 +45,6 @@ export class TimeCapsuleService {
         locked.push({
           ...capsule,
           message: null,
-          title: capsule.title,
-          unlockDate: capsule.unlockDate,
           locked: true,
         });
       }
