@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="55%" r="60%">
+      <stop offset="0%" stop-color="#1e1a18"/>
+      <stop offset="100%" stop-color="#0d0b0a"/>
+    </radialGradient>
+    <radialGradient id="ember" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e87a4a"/>
+      <stop offset="60%" stop-color="#d4592b"/>
+      <stop offset="100%" stop-color="#a8431e"/>
+    </radialGradient>
+    <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#635647"/>
+      <stop offset="100%" stop-color="#2a2420"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="36" fill="url(#bg)"/>
+  <rect x="28" y="36" width="124" height="108" rx="6" fill="none" stroke="url(#frame)" stroke-width="3"/>
+  <line x1="28" y1="58" x2="152" y2="58" stroke="#52473c" stroke-width="2"/>
+  <circle cx="90" cy="100" r="28" fill="url(#ember)" opacity="0.9"/>
+  <circle cx="90" cy="100" r="14" fill="#0d0b0a"/>
+  <line x1="28" y1="144" x2="152" y2="144" stroke="#52473c" stroke-width="3"/>
+  <text x="90" y="166" text-anchor="middle" font-family="Garamond, serif" font-size="13" fill="#c4bcb0" letter-spacing="2">MUSEUM</text>
+</svg>
