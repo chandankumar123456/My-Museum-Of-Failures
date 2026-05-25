@@ -10,6 +10,47 @@ type ReflectionPayload = {
   observations: string;
 };
 
+/**
+ * The model occasionally returns scalars where we asked for arrays
+ * (or vice versa). These coercers keep the persistence layer honest
+ * without losing meaning.
+ */
+function asString(value: unknown, fallback: string): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : fallback;
+  }
+  if (Array.isArray(value)) {
+    const joined = value
+      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+      .join('\n\n');
+    return joined.length > 0 ? joined : fallback;
+  }
+  if (value && typeof value === 'object') {
+    // Some models nest output as { text: "..." } — flatten it.
+    const text = (value as { text?: unknown }).text;
+    if (typeof text === 'string' && text.trim().length > 0) return text.trim();
+  }
+  return fallback;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    // The model sometimes returns a single string with bullet-style
+    // separators. Split on common delimiters but fall back to a
+    // single-element array if nothing matches.
+    const parts = value
+      .split(/\n+|•|;|\u2022/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return parts.length > 1 ? parts : [value.trim()];
+  }
+  return [];
+}
+
 @Injectable()
 export class AiReflectionService {
   private openai: OpenAI;
@@ -41,11 +82,17 @@ export class AiReflectionService {
       messages: [
         {
           role: 'system',
-          content: `You are a melancholic, empathetic museum curator AI. You help people find meaning in their failures. 
-          You speak with emotional depth, poetic observation, and gentle wisdom. 
-          You never offer toxic positivity or dismiss pain. You acknowledge suffering while finding meaning.
-          Respond with a JSON object containing: emotionalSummary (2-3 sentences), patterns (array of observed patterns), 
-          reframing (a gentle reframe of their experience), observations (insightful observations about their story).`,
+          content: `You are a melancholic, empathetic museum curator AI. You help people find meaning in their failures.
+You speak with emotional depth, poetic observation, and gentle wisdom.
+You never offer toxic positivity or dismiss pain. You acknowledge suffering while finding meaning.
+
+Respond with a JSON object whose fields have these EXACT shapes:
+- emotionalSummary: a single string (2-3 sentences, one paragraph).
+- patterns: an array of short strings (each one a single observed pattern).
+- reframing: a single string (one paragraph, gentle reframe).
+- observations: a single string (one paragraph). NOT an array.
+
+Never return arrays for any field other than 'patterns'.`,
         },
         {
           role: 'user',
@@ -56,9 +103,9 @@ export class AiReflectionService {
     });
 
     const content = completion.choices[0]?.message?.content || '{}';
-    let parsed: Partial<ReflectionPayload>;
+    let parsed: Partial<ReflectionPayload> | Record<string, unknown>;
     try {
-      parsed = JSON.parse(content) as Partial<ReflectionPayload>;
+      parsed = JSON.parse(content) as Record<string, unknown>;
     } catch {
       parsed = {};
     }
@@ -66,10 +113,19 @@ export class AiReflectionService {
     return this.prisma.aIReflection.create({
       data: {
         exhibitId,
-        emotionalSummary: parsed.emotionalSummary || 'A story of profound human experience.',
-        patterns: parsed.patterns || [],
-        reframing: parsed.reframing || 'Every failure carries wisdom within its weight.',
-        observations: parsed.observations || 'The courage to share this is already a form of recovery.',
+        emotionalSummary: asString(
+          (parsed as Record<string, unknown>).emotionalSummary,
+          'A story of profound human experience.',
+        ),
+        patterns: asStringArray((parsed as Record<string, unknown>).patterns),
+        reframing: asString(
+          (parsed as Record<string, unknown>).reframing,
+          'Every failure carries wisdom within its weight.',
+        ),
+        observations: asString(
+          (parsed as Record<string, unknown>).observations,
+          'The courage to share this is already a form of recovery.',
+        ),
       },
     });
   }
