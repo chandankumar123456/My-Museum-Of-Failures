@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import type { ExhibitView } from '@museum/shared';
 import { MuseumLayout } from '@/components/museum/museum-layout';
 import { ExhibitDetail } from '@/components/exhibits/exhibit-detail';
 import { ReactionButtons } from '@/components/emotions/reaction-buttons';
@@ -11,13 +12,14 @@ import { api } from '@/lib/api';
 
 export default function ExhibitPage() {
   const params = useParams();
-  const [exhibit, setExhibit] = useState<any>(null);
+  const [exhibit, setExhibit] = useState<ExhibitView | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!params?.id) return;
-    api.exhibits.get(params.id as string)
-      .then(setExhibit)
+    api.exhibits
+      .get(params.id as string)
+      .then((data) => setExhibit(data as ExhibitView))
       .catch(() => setExhibit(null))
       .finally(() => setLoading(false));
   }, [params?.id]);
