@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
+import type { Exhibit } from '@prisma/client';
+
+type ReflectionPayload = {
+  emotionalSummary: string;
+  patterns: string[];
+  reframing: string;
+  observations: string;
+};
 
 @Injectable()
 export class AiReflectionService {
@@ -48,7 +56,12 @@ export class AiReflectionService {
     });
 
     const content = completion.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
+    let parsed: Partial<ReflectionPayload>;
+    try {
+      parsed = JSON.parse(content) as Partial<ReflectionPayload>;
+    } catch {
+      parsed = {};
+    }
 
     return this.prisma.aIReflection.create({
       data: {
@@ -135,7 +148,7 @@ export class AiReflectionService {
     };
   }
 
-  private buildReflectionPrompt(exhibit: any): string {
+  private buildReflectionPrompt(exhibit: Exhibit): string {
     return `Analyze this failure exhibit from the Museum of Failures:
 
 Title: ${exhibit.title}
