@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="55%" r="70%">
+      <stop offset="0%" stop-color="#1a1513"/>
+      <stop offset="100%" stop-color="#0d0b0a"/>
+    </radialGradient>
+    <radialGradient id="ember" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e87a4a" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#d4592b" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix values="0 0 0 0 0.77  0 0 0 0 0.74  0 0 0 0 0.69  0 0 0 0.04 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Soft ember glow -->
+  <ellipse cx="950" cy="470" rx="260" ry="200" fill="url(#ember)" opacity="0.35"/>
+
+  <!-- Decorative frame line -->
+  <rect x="80" y="80" width="1040" height="470" rx="2" fill="none" stroke="#52473c" stroke-width="1.5"/>
+  <line x1="80" y1="180" x2="1120" y2="180" stroke="#52473c" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="120" y="148" font-family="Garamond, 'EB Garamond', serif" font-size="42" fill="#8a7b63" letter-spacing="14">A DIGITAL MUSEUM OF</text>
+
+  <text x="120" y="320" font-family="Garamond, 'EB Garamond', serif" font-size="120" fill="#e0dad0">My Museum of</text>
+  <text x="120" y="450" font-family="Garamond, 'EB Garamond', serif" font-size="140" fill="#d4592b" font-style="italic">Failures.</text>
+
+  <!-- Tag line -->
+  <text x="120" y="520" font-family="Inter, sans-serif" font-size="22" fill="#8a7b63">Where failures, regrets, and abandoned dreams are preserved as meaningful artifacts.</text>
+
+  <!-- Film grain -->
+  <rect width="1200" height="630" filter="url(#grain)" opacity="0.4"/>
+</svg>
