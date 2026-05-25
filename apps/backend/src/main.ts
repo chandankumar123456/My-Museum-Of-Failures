@@ -4,12 +4,39 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 
+/**
+ * Builds the CORS allow-list from FRONTEND_URL.
+ *
+ * - FRONTEND_URL may be a single origin or a comma-separated list.
+ * - In dev we also accept the matching 127.0.0.1 variant for any
+ *   localhost origin we were given. Browsers treat localhost and
+ *   127.0.0.1 as different origins; both should work in development.
+ */
+function buildAllowedOrigins(): string[] {
+  const raw = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const origins = new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+
+  if (process.env.NODE_ENV !== 'production') {
+    for (const o of Array.from(origins)) {
+      origins.add(o.replace('localhost', '127.0.0.1'));
+      origins.add(o.replace('127.0.0.1', 'localhost'));
+    }
+  }
+
+  return Array.from(origins);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = buildAllowedOrigins();
   const r2Public = process.env.R2_PUBLIC_URL;
   const isProd = process.env.NODE_ENV === 'production';
 
@@ -31,7 +58,7 @@ async function bootstrap() {
     ],
     connectSrc: [
       "'self'",
-      frontendUrl,
+      ...allowedOrigins,
       'https://api.openai.com',
       'wss:',
       'ws:',
@@ -44,7 +71,6 @@ async function bootstrap() {
     upgradeInsecureRequests: isProd ? [] : undefined,
   };
 
-  // Drop undefined values so helmet doesn't complain.
   const directives = Object.fromEntries(
     Object.entries(cspDirectives).filter(([, v]) => v !== undefined),
   ) as Record<string, string[]>;
@@ -61,7 +87,15 @@ async function bootstrap() {
   app.use(cookieParser(process.env.JWT_SECRET || 'museum-dev-secret'));
 
   app.enableCors({
-    origin: frontendUrl,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow same-origin / non-browser callers (curl, server-to-server).
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     credentials: true,
   });
 
@@ -77,6 +111,7 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
   logger.log(`Museum backend running on http://localhost:${port}`);
+  logger.log(`CORS allow-list: ${allowedOrigins.join(', ')}`);
 }
 
 bootstrap();
