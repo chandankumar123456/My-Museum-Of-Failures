@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { REACTIONS } from '@/lib/constants';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface ReactionButtonsProps {
   exhibitId: string;
@@ -11,6 +12,7 @@ interface ReactionButtonsProps {
 }
 
 export function ReactionButtons({ exhibitId, counts = {} }: ReactionButtonsProps) {
+  const { userId } = useAuthStore();
   const [localCounts, setLocalCounts] = useState<Record<string, number>>(counts);
   const [reacted, setReacted] = useState<Set<string>>(new Set());
 
@@ -18,14 +20,14 @@ export function ReactionButtons({ exhibitId, counts = {} }: ReactionButtonsProps
     if (reacted.has(reaction)) return;
 
     try {
-      await api.emotions.react(exhibitId, reaction);
+      await api.emotions.react(exhibitId, reaction, userId ?? undefined);
       setLocalCounts((prev) => ({
         ...prev,
         [reaction]: (prev[reaction] || 0) + 1,
       }));
       setReacted((prev) => new Set(prev).add(reaction));
     } catch {
-      // Silent fail for reactions
+      // Silent fail: reactions are non-critical UX
     }
   };
 
