@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ExhibitionCategory, EndingStatusType, RecoveryStatusType, VisibilityMode } from '@prisma/client';
+import { SocketGateway } from '../socket/socket.gateway';
+import {
+  ExhibitionCategory,
+  EndingStatusType,
+  RecoveryStatusType,
+  VisibilityMode,
+  MuseumRoomSlug,
+  Prisma,
+} from '@prisma/client';
 
 export interface CreateExhibitDto {
   title: string;
@@ -25,16 +33,34 @@ export interface CreateExhibitDto {
   userId?: string;
 }
 
+export interface ExhibitFilters {
+  category?: ExhibitionCategory;
+  roomId?: string;
+  endingStatus?: EndingStatusType;
+  recoveryStatus?: RecoveryStatusType;
+  minPain?: number;
+  maxPain?: number;
+  emotionalTags?: string[];
+  search?: string;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'createdAt' | 'painLevel' | 'viewCount';
+  sortOrder?: 'asc' | 'desc';
+}
+
 @Injectable()
 export class ExhibitService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private gateway: SocketGateway,
+  ) {}
 
   async create(dto: CreateExhibitDto) {
     let roomId: string | undefined;
 
     if (dto.roomSlug) {
       const room = await this.prisma.museumRoom.findUnique({
-        where: { slug: dto.roomSlug as any },
+        where: { slug: dto.roomSlug as MuseumRoomSlug },
       });
       if (room) roomId = room.id;
     }
@@ -67,6 +93,12 @@ export class ExhibitService {
         reactions: true,
         room: true,
       },
+    }).then((exhibit) => {
+      this.gateway.broadcastExhibitCreated({
+        exhibitId: exhibit.id,
+        roomSlug: exhibit.room?.slug ?? null,
+      });
+      return exhibit;
     });
   }
 
@@ -106,28 +138,19 @@ export class ExhibitService {
     return exhibit;
   }
 
-  async findAll(filters?: {
-    category?: ExhibitionCategory;
-    roomId?: string;
-    endingStatus?: EndingStatusType;
-    recoveryStatus?: RecoveryStatusType;
-    minPain?: number;
-    maxPain?: number;
-    emotionalTags?: string[];
-    search?: string;
-    limit?: number;
-    offset?: number;
-    sortBy?: 'createdAt' | 'painLevel' | 'viewCount';
-    sortOrder?: 'asc' | 'desc';
-  }) {
-    const where: any = {};
+  async findAll(filters?: ExhibitFilters) {
+    const where: Prisma.ExhibitWhereInput = {};
 
     if (filters?.category) where.category = filters.category;
     if (filters?.roomId) where.roomId = filters.roomId;
     if (filters?.endingStatus) where.endingStatus = filters.endingStatus;
     if (filters?.recoveryStatus) where.recoveryStatus = filters.recoveryStatus;
-    if (filters?.minPain) where.painLevel = { gte: filters.minPain };
-    if (filters?.maxPain) where.painLevel = { ...where.painLevel, lte: filters.maxPain };
+    if (filters?.minPain || filters?.maxPain) {
+      where.painLevel = {
+        ...(filters.minPain !== undefined ? { gte: filters.minPain } : {}),
+        ...(filters.maxPain !== undefined ? { lte: filters.maxPain } : {}),
+      };
+    }
     if (filters?.emotionalTags?.length) where.emotionalTags = { hasSome: filters.emotionalTags };
     if (filters?.search) {
       where.OR = [
@@ -136,8 +159,9 @@ export class ExhibitService {
       ];
     }
 
-    const orderBy: any = {};
-    orderBy[filters?.sortBy || 'createdAt'] = filters?.sortOrder || 'desc';
+    const sortKey = filters?.sortBy || 'createdAt';
+    const sortDir = filters?.sortOrder || 'desc';
+    const orderBy: Prisma.ExhibitOrderByWithRelationInput = { [sortKey]: sortDir };
 
     const [exhibits, total] = await Promise.all([
       this.prisma.exhibit.findMany({
