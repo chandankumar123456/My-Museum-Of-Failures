@@ -2,22 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-interface OneSentenceConfession {
-  id: string;
-  title: string;
-  story: string;
-  createdAt: string;
-}
+import type { ExhibitView } from '@museum/shared';
+import { api } from '@/lib/api';
 
 export function OneSentenceConfessions() {
-  const [confessions, setConfessions] = useState<OneSentenceConfession[]>([]);
+  const [confessions, setConfessions] = useState<ExhibitView[]>([]);
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/exhibits/one-sentence`)
-      .then((r) => r.json())
-      .then((data) => setConfessions(Array.isArray(data) ? data : []))
+    api.exhibits
+      .oneSentence()
+      .then((data) => setConfessions(Array.isArray(data) ? (data as ExhibitView[]) : []))
       .catch(() => {});
   }, []);
 
@@ -30,6 +25,8 @@ export function OneSentenceConfessions() {
   }, [confessions.length]);
 
   if (confessions.length === 0) return null;
+
+  const c = confessions[current];
 
   return (
     <div className="museum-card p-6 border-ember/10">
@@ -44,10 +41,10 @@ export function OneSentenceConfessions() {
           className="min-h-[80px]"
         >
           <p className="text-whisper font-serif text-lg italic leading-relaxed">
-            &ldquo;{confessions[current]?.title || confessions[current]?.story}&rdquo;
+            &ldquo;{c?.title || c?.story}&rdquo;
           </p>
           <p className="text-xs text-museum-600 mt-2">
-            — Exhibit #{confessions[current]?.id?.slice(0, 8)}
+            — Exhibit #{c?.id?.slice(0, 8)}
           </p>
         </motion.div>
       </AnimatePresence>
