@@ -11,6 +11,29 @@ import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 
 /**
+ * Builds the CORS allow-list from FRONTEND_URL, mirroring main.ts so
+ * that websocket origins and HTTP origins match.
+ */
+function buildAllowedOrigins(): string[] {
+  const raw = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const origins = new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+  if (process.env.NODE_ENV !== 'production') {
+    for (const o of Array.from(origins)) {
+      origins.add(o.replace('localhost', '127.0.0.1'));
+      origins.add(o.replace('127.0.0.1', 'localhost'));
+    }
+  }
+  return Array.from(origins);
+}
+
+const ALLOWED_ORIGINS = buildAllowedOrigins();
+
+/**
  * Events the gateway emits/accepts.
  *
  * Inbound (client → server):
@@ -24,7 +47,11 @@ import { Server, Socket } from 'socket.io';
  */
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     credentials: true,
   },
 })
