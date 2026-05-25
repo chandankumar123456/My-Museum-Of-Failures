@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useAtmosphereStore } from '@/stores/atmosphere-store';
-import { useAudioStore } from '@/stores/audio-store';
 
 interface RoomAtmosphereProps {
   roomSlug: string;
@@ -10,11 +9,18 @@ interface RoomAtmosphereProps {
   ambience?: string;
 }
 
+type Lighting = 'dim' | 'dark' | 'warm' | 'cool' | 'flicker';
+type Weather = 'mist' | 'rain' | 'calm' | 'storm' | 'fog';
+type Intensity = 'calm' | 'heavy' | 'intense' | 'peaceful';
+
 export function RoomAtmosphere({ roomSlug, lighting, ambience }: RoomAtmosphereProps) {
   const { setLighting, setWeather, setIntensity } = useAtmosphereStore();
 
   useEffect(() => {
-    const roomAtmospheres: Record<string, { lighting: string; weather: string; intensity: string }> = {
+    const roomAtmospheres: Record<
+      string,
+      { lighting: Lighting; weather: Weather; intensity: Intensity }
+    > = {
       hall_of_broken_dreams: { lighting: 'dim', weather: 'mist', intensity: 'calm' },
       startup_cemetery: { lighting: 'flicker', weather: 'fog', intensity: 'heavy' },
       burnout_basement: { lighting: 'dark', weather: 'fog', intensity: 'heavy' },
@@ -27,9 +33,9 @@ export function RoomAtmosphere({ roomSlug, lighting, ambience }: RoomAtmosphereP
 
     const atmosphere = roomAtmospheres[roomSlug] || roomAtmospheres.hall_of_broken_dreams;
 
-    setLighting(lighting || atmosphere.lighting as any);
-    setWeather(atmosphere.weather as any);
-    setIntensity(atmosphere.intensity as any);
+    setLighting((lighting as Lighting) || atmosphere.lighting);
+    setWeather(atmosphere.weather);
+    setIntensity(atmosphere.intensity);
 
     return () => {
       setLighting('dim');
