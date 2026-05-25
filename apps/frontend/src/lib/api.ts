@@ -21,6 +21,7 @@ class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
+    credentials: 'include',
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -88,6 +89,7 @@ export const api = {
       return fetch(`${API_BASE}/artifacts/upload/${exhibitId}/${type}`, {
         method: 'POST',
         body: form,
+        credentials: 'include',
       }).then(async (r) => {
         if (!r.ok) throw new ApiError(r.status, 'Upload failed');
         return r.json();
@@ -141,6 +143,7 @@ export const api = {
         '/auth/pseudonym',
         json({ pseudonym }),
       ),
+    logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
     getUser: (userId: string) => request<unknown>(`/auth/user/${userId}`),
     updateIdentityMode: (userId: string, mode: 'anonymous' | 'pseudonym' | 'real_name') =>
       request<unknown>(`/auth/identity-mode/${userId}`, json({ mode })),
