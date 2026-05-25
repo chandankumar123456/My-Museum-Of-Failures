@@ -2,7 +2,19 @@
 
 import { useEffect, useRef } from 'react';
 import { useAudioStore } from '@/stores/audio-store';
+import {
+  startAmbience,
+  stopAmbience,
+  setAmbienceVolume,
+  AMBIENCE_PRESETS,
+} from '@/lib/ambient-engine';
 
+/**
+ * Map of room ambience keys to optional public audio assets. If a real
+ * recording exists at the given path it will be preferred over the
+ * procedural drone — but the museum is fully audible without any
+ * MP3 files present.
+ */
 const ATMOSPHERE_TRACKS: Record<string, string> = {
   default: '/audio/museum-ambience.mp3',
   echoing_hall: '/audio/echoing-hall.mp3',
@@ -15,62 +27,104 @@ const ATMOSPHERE_TRACKS: Record<string, string> = {
   rain_room: '/audio/rain-room.mp3',
 };
 
+/**
+ * Probes whether a real recording exists at the given URL via HEAD.
+ * Treats any non-2xx as "not present" and silently falls back to the
+ * procedural engine.
+ */
+async function probeTrack(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Boots once on first user gesture: required by browser autoplay policies. */
 export function AudioManager() {
-  const { isMuted, volume, setPlaying, setTrack } = useAudioStore();
-  const audioContextRef = useRef<AudioContext | null>(null);
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    const initAudio = () => {
+    const init = () => {
       if (initializedRef.current) return;
       initializedRef.current = true;
-
-      try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      } catch {
-        console.warn('Audio not available');
-      }
+      // Touching the AudioContext via the engine is enough; the engine
+      // creates it lazily inside startAmbience.
     };
 
-    document.addEventListener('click', initAudio, { once: true });
-    document.addEventListener('touchstart', initAudio, { once: true });
+    document.addEventListener('click', init, { once: true });
+    document.addEventListener('touchstart', init, { once: true });
 
     return () => {
-      document.removeEventListener('click', initAudio);
-      document.removeEventListener('touchstart', initAudio);
-      audioContextRef.current?.close();
+      document.removeEventListener('click', init);
+      document.removeEventListener('touchstart', init);
+      stopAmbience();
     };
   }, []);
 
   return null;
 }
 
+/**
+ * Plays ambient sound for a given room key. Prefers a real /audio file
+ * if one is shipped under apps/frontend/public/audio; otherwise uses
+ * the procedural engine.
+ */
 export function useAmbientSound(trackKey: string = 'default') {
   const { isMuted, volume } = useAudioStore();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const usingProceduralRef = useRef(false);
 
   useEffect(() => {
-    const track = ATMOSPHERE_TRACKS[trackKey] || ATMOSPHERE_TRACKS.default;
-    if (!track) return;
+    let cancelled = false;
+    const targetVolume = isMuted ? 0 : volume;
+    const url = ATMOSPHERE_TRACKS[trackKey] || ATMOSPHERE_TRACKS.default;
 
-    const audio = new Audio(track);
-    audio.loop = true;
-    audio.volume = isMuted ? 0 : volume;
-    audioRef.current = audio;
+    (async () => {
+      const real = url ? await probeTrack(url) : false;
+      if (cancelled) return;
 
-    audio.play().catch(() => {});
+      if (real && url) {
+        usingProceduralRef.current = false;
+        const audio = new Audio(url);
+        audio.loop = true;
+        audio.volume = targetVolume;
+        audioRef.current = audio;
+        audio.play().catch(() => {});
+      } else {
+        usingProceduralRef.current = true;
+        await startAmbience(trackKey, targetVolume);
+      }
+    })();
 
     return () => {
-      audio.pause();
-      audio.src = '';
+      cancelled = true;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+      if (usingProceduralRef.current) {
+        stopAmbience();
+        usingProceduralRef.current = false;
+      }
     };
+    // We restart on track change; volume/mute are reflected by the next effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackKey]);
 
   useEffect(() => {
+    const target = isMuted ? 0 : volume;
     if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
+      audioRef.current.volume = target;
+    }
+    if (usingProceduralRef.current) {
+      setAmbienceVolume(target);
     }
   }, [isMuted, volume]);
 
   return audioRef;
 }
+
+export { AMBIENCE_PRESETS };
