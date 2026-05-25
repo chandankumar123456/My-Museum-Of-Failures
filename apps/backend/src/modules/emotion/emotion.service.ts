@@ -6,23 +6,24 @@ import { EmotionalReactionType } from '@prisma/client';
 export class EmotionService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Toggles a reaction for the given exhibit + user. Anonymous reactions
+   * (userId === undefined) are always additive — there is no per-session
+   * de-dup for anonymous traffic.
+   */
   async addReaction(exhibitId: string, reaction: EmotionalReactionType, userId?: string) {
     const exhibit = await this.prisma.exhibit.findUnique({ where: { id: exhibitId } });
     if (!exhibit) throw new NotFoundException('Exhibit not found');
 
-    const existing = await this.prisma.exhibitReaction.findUnique({
-      where: {
-        exhibitId_userId_reaction: {
-          exhibitId,
-          userId: userId ?? 'anonymous',
-          reaction,
-        },
-      },
-    });
+    if (userId) {
+      const existing = await this.prisma.exhibitReaction.findFirst({
+        where: { exhibitId, userId, reaction },
+      });
 
-    if (existing) {
-      await this.prisma.exhibitReaction.delete({ where: { id: existing.id } });
-      return { removed: true };
+      if (existing) {
+        await this.prisma.exhibitReaction.delete({ where: { id: existing.id } });
+        return { removed: true };
+      }
     }
 
     return this.prisma.exhibitReaction.create({
