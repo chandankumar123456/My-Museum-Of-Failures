@@ -1,52 +1,150 @@
+'use client';
+
+/**
+ * Thin, typed fetch wrapper around the NestJS backend.
+ *
+ * Notes:
+ * - All methods throw on non-2xx so callers can handle failures with
+ *   try/catch or with TanStack Query's error states.
+ * - Anonymous reactions still work; userId is optional everywhere it is
+ *   not strictly required (time capsules, legacy vault).
+ */
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new ApiError(res.status, text || `Request failed (${res.status})`);
+  }
+
+  // 204 No Content
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+const json = (body: unknown) => ({
+  method: 'POST' as const,
+  body: JSON.stringify(body),
+});
 
 export const api = {
   exhibits: {
-    list: (params?: string) => fetch(`${API_BASE}/exhibits${params ? `?${params}` : ''}`).then(r => r.json()),
-    get: (id: string) => fetch(`${API_BASE}/exhibits/${id}`).then(r => r.json()),
-    create: (data: any) => fetch(`${API_BASE}/exhibits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    update: (id: string, data: any) => fetch(`${API_BASE}/exhibits/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    delete: (id: string) => fetch(`${API_BASE}/exhibits/${id}`, { method: 'DELETE' }).then(r => r.json()),
-    similar: (id: string) => fetch(`${API_BASE}/exhibits/${id}/similar`).then(r => r.json()),
-    emotionalSearch: (q: string) => fetch(`${API_BASE}/exhibits/emotional-search?q=${encodeURIComponent(q)}`).then(r => r.json()),
-    oneSentence: () => fetch(`${API_BASE}/exhibits/one-sentence`).then(r => r.json()),
-    unread: () => fetch(`${API_BASE}/exhibits/unread`).then(r => r.json()),
+    list: (params?: string) => request<{ exhibits: unknown[]; total: number }>(
+      `/exhibits${params ? `?${params}` : ''}`,
+    ),
+    get: (id: string) => request<unknown>(`/exhibits/${id}`),
+    create: (data: unknown) => request<unknown>('/exhibits', json(data)),
+    update: (id: string, data: unknown) => request<unknown>(`/exhibits/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+    remove: (id: string) => request<unknown>(`/exhibits/${id}`, { method: 'DELETE' }),
+    similar: (id: string) => request<unknown[]>(`/exhibits/${id}/similar`),
+    emotionalSearch: (q: string) => request<unknown[]>(
+      `/exhibits/emotional-search?q=${encodeURIComponent(q)}`,
+    ),
+    oneSentence: () => request<unknown[]>('/exhibits/one-sentence'),
+    unread: () => request<unknown[]>('/exhibits/unread'),
+    incrementRetry: (id: string) => request<unknown>(`/exhibits/${id}/retry`, { method: 'POST' }),
   },
   emotions: {
-    react: (exhibitId: string, reaction: string) => fetch(`${API_BASE}/emotions/${exhibitId}/react/${reaction}`, { method: 'POST' }).then(r => r.json()),
-    getReactions: (exhibitId: string) => fetch(`${API_BASE}/emotions/${exhibitId}/reactions`).then(r => r.json()),
-    notAlone: (exhibitId: string) => fetch(`${API_BASE}/emotions/${exhibitId}/not-alone`).then(r => r.json()),
+    react: (exhibitId: string, reaction: string, userId?: string) => request<unknown>(
+      `/emotions/${exhibitId}/react/${reaction}${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`,
+      { method: 'POST' },
+    ),
+    getReactions: (exhibitId: string) => request<{
+      total: number;
+      counts: Record<string, number>;
+      reactions: unknown[];
+    }>(`/emotions/${exhibitId}/reactions`),
+    notAlone: (exhibitId: string) => request<unknown[]>(`/emotions/${exhibitId}/not-alone`),
   },
   rooms: {
-    list: () => fetch(`${API_BASE}/rooms`).then(r => r.json()),
-    get: (slug: string) => fetch(`${API_BASE}/rooms/${slug}`).then(r => r.json()),
-    randomWalk: () => fetch(`${API_BASE}/rooms/random-walk`).then(r => r.json()),
-    lastAttempts: () => fetch(`${API_BASE}/rooms/last-attempts`).then(r => r.json()),
+    list: () => request<unknown[]>('/rooms'),
+    get: (slug: string) => request<unknown>(`/rooms/${slug}`),
+    randomWalk: () => request<unknown[]>('/rooms/random-walk'),
+    lastAttempts: () => request<unknown[]>('/rooms/last-attempts'),
   },
   artifacts: {
     upload: (exhibitId: string, type: string, file: File) => {
       const form = new FormData();
       form.append('file', file);
-      return fetch(`${API_BASE}/artifacts/upload/${exhibitId}/${type}`, { method: 'POST', body: form }).then(r => r.json());
+      return fetch(`${API_BASE}/artifacts/upload/${exhibitId}/${type}`, {
+        method: 'POST',
+        body: form,
+      }).then(async (r) => {
+        if (!r.ok) throw new ApiError(r.status, 'Upload failed');
+        return r.json();
+      });
     },
-    getUrl: (id: string) => fetch(`${API_BASE}/artifacts/${id}/url`).then(r => r.json()),
-    getByExhibit: (exhibitId: string) => fetch(`${API_BASE}/artifacts/exhibit/${exhibitId}`).then(r => r.json()),
+    getUrl: (id: string) => request<{ url: string; artifact: unknown }>(`/artifacts/${id}/url`),
+    getByExhibit: (exhibitId: string) => request<unknown[]>(`/artifacts/exhibit/${exhibitId}`),
   },
   ai: {
-    generateReflection: (exhibitId: string) => fetch(`${API_BASE}/ai-reflection/generate/${exhibitId}`, { method: 'POST' }).then(r => r.json()),
-    curatedExhibitions: () => fetch(`${API_BASE}/ai-reflection/curated-exhibitions`).then(r => r.json()),
-    curatorChat: (message: string, context?: any) => fetch(`${API_BASE}/ai-reflection/curator`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, context }) }).then(r => r.json()),
+    generateReflection: (exhibitId: string) => request<{
+      emotionalSummary: string;
+      patterns: string[];
+      reframing: string;
+      observations: string;
+    }>(`/ai-reflection/generate/${exhibitId}`, { method: 'POST' }),
+    curatedExhibitions: () => request<unknown[]>('/ai-reflection/curated-exhibitions'),
+    curatorChat: (message: string, context?: { recentExhibits?: string[] }) =>
+      request<{ message: string; role: string }>('/ai-reflection/curator', json({ message, context })),
   },
   timeCapsule: {
-    create: (data: any) => fetch(`${API_BASE}/time-capsule`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    getUser: (userId: string) => fetch(`${API_BASE}/time-capsule/user/${userId}`).then(r => r.json()),
-    get: (id: string, userId: string) => fetch(`${API_BASE}/time-capsule/${id}/${userId}`).then(r => r.json()),
-    setLegacy: (userId: string, exhibitId: string) => fetch(`${API_BASE}/time-capsule/legacy/${userId}/${exhibitId}`, { method: 'POST' }).then(r => r.json()),
-    getLegacy: (userId: string) => fetch(`${API_BASE}/time-capsule/legacy/${userId}`).then(r => r.json()),
+    create: (data: { userId: string; title: string; message: string; unlockDate: string }) =>
+      request<unknown>('/time-capsule', json(data)),
+    getUser: (userId: string) => request<{ unlocked: unknown[]; locked: unknown[] }>(
+      `/time-capsule/user/${userId}`,
+    ),
+    get: (id: string, userId: string) => request<unknown>(`/time-capsule/${id}/${userId}`),
+    setLegacy: (userId: string, exhibitId: string) => request<unknown>(
+      `/time-capsule/legacy/${userId}/${exhibitId}`,
+      { method: 'POST' },
+    ),
+    getLegacy: (userId: string) => request<unknown>(`/time-capsule/legacy/${userId}`),
   },
   auth: {
-    anonymous: () => fetch(`${API_BASE}/auth/anonymous`, { method: 'POST' }).then(r => r.json()),
-    register: (data: any) => fetch(`${API_BASE}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    pseudonym: (pseudonym: string) => fetch(`${API_BASE}/auth/pseudonym`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pseudonym }) }).then(r => r.json()),
+    anonymous: () => request<{
+      userId: string;
+      identityMode: string;
+      isAnonymous: boolean;
+    }>('/auth/anonymous', { method: 'POST' }),
+    register: (data: { email: string; password: string; displayName?: string }) =>
+      request<{ user: { id: string; email?: string; displayName?: string; identityMode: string } }>(
+        '/auth/register',
+        json(data),
+      ),
+    login: (data: { email: string; password: string }) =>
+      request<{ user: { id: string; email?: string; displayName?: string; identityMode: string } }>(
+        '/auth/login',
+        json(data),
+      ),
+    pseudonym: (pseudonym: string) =>
+      request<{ user: { id: string; pseudonym?: string; displayName?: string; identityMode: string } }>(
+        '/auth/pseudonym',
+        json({ pseudonym }),
+      ),
+    getUser: (userId: string) => request<unknown>(`/auth/user/${userId}`),
+    updateIdentityMode: (userId: string, mode: 'anonymous' | 'pseudonym' | 'real_name') =>
+      request<unknown>(`/auth/identity-mode/${userId}`, json({ mode })),
   },
 };
+
+export { ApiError };
