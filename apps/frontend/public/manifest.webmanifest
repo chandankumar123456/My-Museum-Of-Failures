@@ -1,0 +1,24 @@
+{
+  "name": "My Museum of Failures",
+  "short_name": "Museum",
+  "description": "An emotionally immersive digital museum where failures are preserved as meaningful artifacts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0b0a",
+  "theme_color": "#0d0b0a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
