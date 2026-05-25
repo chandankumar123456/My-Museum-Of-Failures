@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import type { AIReflectionView } from '@museum/shared';
 import { api } from '@/lib/api';
 
 interface ReflectionPanelProps {
@@ -9,7 +10,7 @@ interface ReflectionPanelProps {
 }
 
 export function ReflectionPanel({ exhibitId }: ReflectionPanelProps) {
-  const [reflection, setReflection] = useState<any>(null);
+  const [reflection, setReflection] = useState<AIReflectionView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -18,7 +19,7 @@ export function ReflectionPanel({ exhibitId }: ReflectionPanelProps) {
     setError('');
     try {
       const result = await api.ai.generateReflection(exhibitId);
-      setReflection(result);
+      setReflection(result as AIReflectionView);
     } catch {
       setError('The curator is silent. Try again later.');
     } finally {
@@ -29,6 +30,7 @@ export function ReflectionPanel({ exhibitId }: ReflectionPanelProps) {
   useEffect(() => {
     const timer = setTimeout(generate, 2000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exhibitId]);
 
   if (loading && !reflection) {
@@ -46,7 +48,10 @@ export function ReflectionPanel({ exhibitId }: ReflectionPanelProps) {
     return (
       <div className="museum-card p-6">
         <p className="text-sm text-museum-600">{error}</p>
-        <button onClick={generate} className="mt-2 text-xs text-ember hover:text-ember-light transition-colors">
+        <button
+          onClick={generate}
+          className="mt-2 text-xs text-ember hover:text-ember-light transition-colors"
+        >
           Try again
         </button>
       </div>
@@ -75,9 +80,11 @@ export function ReflectionPanel({ exhibitId }: ReflectionPanelProps) {
 
         {reflection.patterns?.length > 0 && (
           <div>
-            <p className="text-xs text-museum-600 uppercase tracking-wider mb-2">Patterns Observed</p>
+            <p className="text-xs text-museum-600 uppercase tracking-wider mb-2">
+              Patterns Observed
+            </p>
             <div className="flex flex-wrap gap-2">
-              {reflection.patterns.map((pattern: string, i: number) => (
+              {reflection.patterns.map((pattern, i) => (
                 <span
                   key={i}
                   className="px-2 py-1 bg-void-light border border-museum-800 rounded-sm text-xs text-whisper-dark"
