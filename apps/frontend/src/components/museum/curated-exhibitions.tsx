@@ -3,15 +3,19 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { CuratedExhibitionView } from '@museum/shared';
 import { api } from '@/lib/api';
 
 export function CuratedExhibitions() {
-  const [exhibitions, setExhibitions] = useState<any[]>([]);
+  const [exhibitions, setExhibitions] = useState<CuratedExhibitionView[]>([]);
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    api.ai.curatedExhibitions()
-      .then((data) => setExhibitions(Array.isArray(data) ? data : []))
+    api.ai
+      .curatedExhibitions()
+      .then((data) =>
+        setExhibitions(Array.isArray(data) ? (data as CuratedExhibitionView[]) : []),
+      )
       .catch(() => {});
   }, []);
 
@@ -31,6 +35,7 @@ export function CuratedExhibitions() {
               className={`w-2 h-2 rounded-full transition-colors ${
                 i === current ? 'bg-ember' : 'bg-museum-800'
               }`}
+              aria-label={`Switch to exhibition ${i + 1}`}
             />
           ))}
         </div>
@@ -48,7 +53,7 @@ export function CuratedExhibitions() {
           <p className="text-sm text-whisper-dark mb-4">{exhibition.description}</p>
 
           <div className="space-y-2">
-            {exhibition.exhibits?.slice(0, 3).map((exhibit: any) => (
+            {exhibition.exhibits?.slice(0, 3).map((exhibit) => (
               <Link
                 key={exhibit.id}
                 href={`/exhibits/${exhibit.id}`}
