@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { MuseumLayout } from '@/components/museum/museum-layout';
 import { TimeCapsuleCreate } from '@/components/time-capsule/capsule-create';
 import { motion } from 'framer-motion';
+import type { CapsulesUserView } from '@museum/shared';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function TimeCapsulePage() {
   const { userId } = useAuthStore();
-  const [capsules, setCapsules] = useState<any>({ unlocked: [], locked: [] });
+  const [capsules, setCapsules] = useState<CapsulesUserView>({ unlocked: [], locked: [] });
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -19,7 +20,7 @@ export default function TimeCapsulePage() {
     setLoading(true);
     try {
       const data = await api.timeCapsule.getUser(userId);
-      setCapsules(data);
+      setCapsules(data as CapsulesUserView);
     } catch {
       // silent
     } finally {
@@ -27,7 +28,10 @@ export default function TimeCapsulePage() {
     }
   };
 
-  useEffect(() => { loadCapsules(); }, [userId]);
+  useEffect(() => {
+    loadCapsules();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   return (
     <MuseumLayout>
@@ -73,11 +77,15 @@ export default function TimeCapsulePage() {
                   <div className="mb-8">
                     <h2 className="font-serif text-xl text-whisper mb-4">Opened Capsules</h2>
                     <div className="space-y-3">
-                      {capsules.unlocked.map((capsule: any) => (
+                      {capsules.unlocked.map((capsule) => (
                         <div key={capsule.id} className="museum-card p-4 border-emerald-900/30">
                           <h3 className="text-whisper font-medium">{capsule.title}</h3>
                           <p className="text-whisper-dark text-sm mt-1">{capsule.message}</p>
-                          <p className="text-xs text-museum-600 mt-2">Opened {formatDate(capsule.openedAt)}</p>
+                          {capsule.openedAt && (
+                            <p className="text-xs text-museum-600 mt-2">
+                              Opened {formatDate(capsule.openedAt)}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -88,8 +96,11 @@ export default function TimeCapsulePage() {
                   <div>
                     <h2 className="font-serif text-xl text-whisper mb-4">Sealed Capsules</h2>
                     <div className="space-y-3">
-                      {capsules.locked.map((capsule: any) => (
-                        <div key={capsule.id} className="museum-card p-4 border-museum-800 opacity-70">
+                      {capsules.locked.map((capsule) => (
+                        <div
+                          key={capsule.id}
+                          className="museum-card p-4 border-museum-800 opacity-70"
+                        >
                           <h3 className="text-whisper font-medium">{capsule.title}</h3>
                           <p className="text-xs text-museum-600 mt-1">
                             Unlocks {formatDate(capsule.unlockDate)}
