@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query } from '@nestjs/common';
 import { EmotionService } from './emotion.service';
 import { EmotionalReactionType } from '@prisma/client';
 
@@ -10,8 +10,9 @@ export class EmotionController {
   addReaction(
     @Param('exhibitId') exhibitId: string,
     @Param('reaction') reaction: EmotionalReactionType,
+    @Query('userId') userId?: string,
   ) {
-    return this.emotionService.addReaction(exhibitId, reaction);
+    return this.emotionService.addReaction(exhibitId, reaction, userId);
   }
 
   @Get(':exhibitId/reactions')
