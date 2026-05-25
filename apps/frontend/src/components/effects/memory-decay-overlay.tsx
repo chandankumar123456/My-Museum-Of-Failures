@@ -1,7 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
-
 interface MemoryDecayOverlayProps {
   decayLevel: number;
   children: React.ReactNode;
