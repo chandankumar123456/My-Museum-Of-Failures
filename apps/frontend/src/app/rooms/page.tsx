@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { MuseumLayout } from '@/components/museum/museum-layout';
 import { RoomCard } from '@/components/rooms/room-card';
 import { MUSEUM_ROOMS } from '@/lib/constants';
@@ -33,12 +33,12 @@ export default function RoomsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <a href="/rooms/random-walk" className="block museum-card p-6 hover:border-ember/30 transition-colors">
+            <Link href="/rooms/random-walk" className="block museum-card p-6 hover:border-ember/30 transition-colors">
               <h3 className="font-serif text-xl text-whisper mb-2">🚶 Random Museum Walk</h3>
               <p className="text-whisper-dark text-sm font-light">
                 Wander aimlessly through the archives. Let fate choose what you discover.
               </p>
-            </a>
+            </Link>
           </motion.div>
 
           <motion.div
@@ -46,12 +46,12 @@ export default function RoomsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <a href="/rooms/last-attempts" className="block museum-card p-6 hover:border-ember/30 transition-colors">
+            <Link href="/rooms/last-attempts" className="block museum-card p-6 hover:border-ember/30 transition-colors">
               <h3 className="font-serif text-xl text-whisper mb-2">🎯 The Last Attempt</h3>
               <p className="text-whisper-dark text-sm font-light">
                 Stories of final tries. The people who went back for one more round.
               </p>
-            </a>
+            </Link>
           </motion.div>
         </div>
       </div>
