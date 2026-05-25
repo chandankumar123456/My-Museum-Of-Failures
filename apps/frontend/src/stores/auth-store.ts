@@ -1,33 +1,49 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+export type IdentityMode = 'anonymous' | 'pseudonym' | 'real_name';
 
 interface AuthState {
   userId: string | null;
-  sessionId: string | null;
-  identityMode: 'anonymous' | 'pseudonym' | 'real_name' | null;
+  identityMode: IdentityMode;
   displayName: string | null;
-  setUser: (user: { userId: string; sessionId?: string; identityMode?: string; displayName?: string }) => void;
-  setIdentityMode: (mode: 'anonymous' | 'pseudonym' | 'real_name') => void;
+  isAnonymous: boolean;
+  setUser: (user: {
+    userId: string;
+    identityMode?: IdentityMode;
+    displayName?: string | null;
+    isAnonymous?: boolean;
+  }) => void;
+  setIdentityMode: (mode: IdentityMode) => void;
   clear: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  userId: null,
-  sessionId: null,
-  identityMode: null,
-  displayName: null,
-  setUser: (user) =>
-    set({
-      userId: user.userId,
-      sessionId: user.sessionId || null,
-      identityMode: (user.identityMode as any) || 'anonymous',
-      displayName: user.displayName || null,
-    }),
-  setIdentityMode: (mode) => set({ identityMode: mode }),
-  clear: () =>
-    set({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
       userId: null,
-      sessionId: null,
-      identityMode: null,
+      identityMode: 'anonymous',
       displayName: null,
+      isAnonymous: true,
+      setUser: (user) =>
+        set({
+          userId: user.userId,
+          identityMode: user.identityMode ?? 'anonymous',
+          displayName: user.displayName ?? null,
+          isAnonymous: user.isAnonymous ?? false,
+        }),
+      setIdentityMode: (mode) => set({ identityMode: mode }),
+      clear: () =>
+        set({
+          userId: null,
+          identityMode: 'anonymous',
+          displayName: null,
+          isAnonymous: true,
+        }),
     }),
-}));
+    {
+      name: 'museum-auth',
+      storage: createJSONStorage(() => localStorage),
+    },
+  ),
+);
