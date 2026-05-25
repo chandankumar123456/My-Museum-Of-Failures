@@ -180,3 +180,105 @@ export interface UserProfile {
   joinedAt: Date;
   legacyExhibitId: string | null;
 }
+
+/* ------------------------------------------------------------------ */
+/*  View shapes — what the frontend actually receives from the API.    */
+/*  These are intentionally JSON-flavored (string dates) and partial.  */
+/* ------------------------------------------------------------------ */
+
+export interface ArtifactView {
+  id: string;
+  exhibitId: string;
+  type: 'image' | 'audio' | 'pdf' | 'code' | 'screenshot' | 'note';
+  url: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  decayed?: boolean;
+  createdAt: string;
+}
+
+export interface ReactionView {
+  id: string;
+  exhibitId: string;
+  reaction: EmotionalReaction;
+  userId: string | null;
+  createdAt: string;
+}
+
+export interface RoomSummaryView {
+  id: string;
+  slug: MuseumRoom;
+  name: string;
+  description?: string;
+  ambience?: string;
+  lighting?: string;
+}
+
+export interface ExhibitView {
+  id: string;
+  exhibitId: string;
+  title: string;
+  category: ExhibitionCategory;
+  story: string;
+  expectedOutcome: string;
+  actualOutcome: string;
+  lessonLearned: string;
+  emotionalState?: string;
+  painLevel: number;
+  regretLevel: number;
+  recoveryProgress: number;
+  stillHurts: boolean;
+  wouldRetry: boolean;
+  endingStatus: EndingStatus;
+  recoveryStatus: RecoveryStatus;
+  visibilityMode: VisibilityMode;
+  emotionalTags: string[];
+  retryCount: number;
+  decayLevel?: number;
+  viewCount?: number;
+  isOneSentence?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  artifacts?: ArtifactView[];
+  reactions?: ReactionView[];
+  room?: RoomSummaryView | null;
+}
+
+export interface ExhibitListView {
+  exhibits: ExhibitView[];
+  total: number;
+}
+
+export interface AIReflectionView {
+  id?: string;
+  exhibitId?: string;
+  emotionalSummary: string;
+  patterns: string[];
+  reframing: string;
+  observations: string;
+  createdAt?: string;
+}
+
+export interface CuratedExhibitionView {
+  title: string;
+  description: string;
+  theme: string;
+  exhibits: ExhibitView[];
+}
+
+export interface TimeCapsuleView {
+  id: string;
+  userId: string;
+  title: string;
+  message: string | null;
+  unlockDate: string;
+  isLocked: boolean;
+  openedAt?: string | null;
+  locked?: boolean;
+}
+
+export interface CapsulesUserView {
+  unlocked: TimeCapsuleView[];
+  locked: TimeCapsuleView[];
+}
