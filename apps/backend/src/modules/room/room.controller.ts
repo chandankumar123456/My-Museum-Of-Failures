@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { MuseumRoomSlug } from '@prisma/client';
 
@@ -24,10 +24,5 @@ export class RoomController {
   @Get(':slug')
   findBySlug(@Param('slug') slug: MuseumRoomSlug) {
     return this.roomService.findBySlug(slug);
-  }
-
-  @Post('seed')
-  seed() {
-    return this.roomService.seedRooms();
   }
 }
