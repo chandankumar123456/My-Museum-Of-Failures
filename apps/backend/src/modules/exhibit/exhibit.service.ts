@@ -33,19 +33,41 @@ export interface CreateExhibitDto {
   userId?: string;
 }
 
+/**
+ * Filters as they arrive from `@Query()` — every value may still be a
+ * raw string at this point (Express + Nest don't auto-coerce unless we
+ * use class-validator + ValidationPipe transform). The service is
+ * responsible for normalising before talking to Prisma.
+ */
 export interface ExhibitFilters {
   category?: ExhibitionCategory;
   roomId?: string;
   endingStatus?: EndingStatusType;
   recoveryStatus?: RecoveryStatusType;
-  minPain?: number;
-  maxPain?: number;
-  emotionalTags?: string[];
+  minPain?: number | string;
+  maxPain?: number | string;
+  emotionalTags?: string[] | string;
   search?: string;
-  limit?: number;
-  offset?: number;
+  limit?: number | string;
+  offset?: number | string;
   sortBy?: 'createdAt' | 'painLevel' | 'viewCount';
   sortOrder?: 'asc' | 'desc';
+}
+
+/** Coerces a value to a finite integer or returns undefined. */
+function toIntOrUndefined(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : undefined;
+}
+
+function toStringArray(value: string[] | string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 @Injectable()
@@ -139,19 +161,25 @@ export class ExhibitService {
   }
 
   async findAll(filters?: ExhibitFilters) {
+    const minPain = toIntOrUndefined(filters?.minPain);
+    const maxPain = toIntOrUndefined(filters?.maxPain);
+    const limit = toIntOrUndefined(filters?.limit) ?? 20;
+    const offset = toIntOrUndefined(filters?.offset) ?? 0;
+    const tags = toStringArray(filters?.emotionalTags);
+
     const where: Prisma.ExhibitWhereInput = {};
 
     if (filters?.category) where.category = filters.category;
     if (filters?.roomId) where.roomId = filters.roomId;
     if (filters?.endingStatus) where.endingStatus = filters.endingStatus;
     if (filters?.recoveryStatus) where.recoveryStatus = filters.recoveryStatus;
-    if (filters?.minPain || filters?.maxPain) {
+    if (minPain !== undefined || maxPain !== undefined) {
       where.painLevel = {
-        ...(filters.minPain !== undefined ? { gte: filters.minPain } : {}),
-        ...(filters.maxPain !== undefined ? { lte: filters.maxPain } : {}),
+        ...(minPain !== undefined ? { gte: minPain } : {}),
+        ...(maxPain !== undefined ? { lte: maxPain } : {}),
       };
     }
-    if (filters?.emotionalTags?.length) where.emotionalTags = { hasSome: filters.emotionalTags };
+    if (tags?.length) where.emotionalTags = { hasSome: tags };
     if (filters?.search) {
       where.OR = [
         { title: { contains: filters.search, mode: 'insensitive' } },
@@ -172,8 +200,8 @@ export class ExhibitService {
           room: true,
         },
         orderBy,
-        take: filters?.limit || 20,
-        skip: filters?.offset || 0,
+        take: Math.max(1, Math.min(100, limit)),
+        skip: Math.max(0, offset),
       }),
       this.prisma.exhibit.count({ where }),
     ]);
