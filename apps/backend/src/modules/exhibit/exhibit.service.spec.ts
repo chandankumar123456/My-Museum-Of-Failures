@@ -94,3 +94,65 @@ describe('ExhibitService.findAll', () => {
     });
   });
 });
+
+
+describe('ExhibitService.findAll userId filter', () => {
+  it('applies userId filter', async () => {
+    const prisma = makePrismaStub();
+    const service = new ExhibitService(prisma as any, fakeGateway as any);
+    await service.findAll({ userId: 'user_1' });
+    expect(prisma.calls[0].where).toMatchObject({ userId: 'user_1' });
+  });
+});
+
+describe('ExhibitService.getEvolutionTree', () => {
+  function makeTreeStub(rows: Array<Record<string, any>>) {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return {
+      exhibit: {
+        findUnique: jest.fn(async ({ where }: any) => byId.get(where.id) ?? null),
+        findMany: jest.fn(async ({ where }: any) => {
+          const ids: string[] = where.parentFailureId.in;
+          return rows.filter((r) => r.parentFailureId && ids.includes(r.parentFailureId));
+        }),
+      },
+      museumRoom: { findUnique: jest.fn() },
+    };
+  }
+
+  const lineage = [
+    { id: 'A', exhibitId: 'EX-A', title: 'Attempt 1', category: 'startup_failure', painLevel: 8, evolutionStatus: 'failed', recoveryStatus: 'gave_up', lessonLearned: 'L1', parentFailureId: null, createdAt: new Date('2024-01-01T00:00:00Z'), recoveredAt: null },
+    { id: 'B', exhibitId: 'EX-B', title: 'Attempt 2', category: 'startup_failure', painLevel: 6, evolutionStatus: 'ongoing', recoveryStatus: 'retried', lessonLearned: 'L2', parentFailureId: 'A', createdAt: new Date('2024-02-01T00:00:00Z'), recoveredAt: null },
+    { id: 'C', exhibitId: 'EX-C', title: 'Pivot', category: 'startup_failure', painLevel: 3, evolutionStatus: 'recovered', recoveryStatus: 'recovered', lessonLearned: 'L3', parentFailureId: 'B', createdAt: new Date('2024-03-01T00:00:00Z'), recoveredAt: new Date('2024-03-11T00:00:00Z') },
+  ];
+
+  it('builds the nested tree from a leaf, walking up to the root', async () => {
+    const prisma = makeTreeStub(lineage);
+    const service = new ExhibitService(prisma as any, fakeGateway as any);
+    const result = await service.getEvolutionTree('C');
+
+    expect(result.rootId).toBe('A');
+    expect(result.focusId).toBe('C');
+    expect(result.tree.id).toBe('A');
+    expect((result.tree.children[0] as any).id).toBe('B');
+    expect((result.tree.children[0] as any).children[0].id).toBe('C');
+  });
+
+  it('computes recovery metrics', async () => {
+    const prisma = makeTreeStub(lineage);
+    const service = new ExhibitService(prisma as any, fakeGateway as any);
+    const { metrics } = await service.getEvolutionTree('C');
+
+    expect(metrics.attempts).toBe(3);
+    expect(metrics.retries).toBe(2);
+    expect(metrics.recovered).toBe(true);
+    expect(metrics.timeToRecoverDays).toBe(70);
+    expect(metrics.lessons).toContain('L3');
+  });
+
+  it('throws when the exhibit is missing', async () => {
+    const prisma = makeTreeStub([]);
+    const service = new ExhibitService(prisma as any, fakeGateway as any);
+    await expect(service.getEvolutionTree('nope')).rejects.toThrow();
+  });
+});
