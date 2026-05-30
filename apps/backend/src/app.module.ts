@@ -9,6 +9,9 @@ import { EmotionModule } from './modules/emotion/emotion.module';
 import { RoomModule } from './modules/room/room.module';
 import { ArtifactModule } from './modules/artifact/artifact.module';
 import { AiReflectionModule } from './modules/ai-reflection/ai-reflection.module';
+import { GenomeModule } from './modules/genome/genome.module';
+import { ConstellationModule } from './modules/constellation/constellation.module';
+import { AudioModule } from './modules/audio/audio.module';
 import { TimeCapsuleModule } from './modules/time-capsule/time-capsule.module';
 import { SocketModule } from './modules/socket/socket.module';
 import { DecayModule } from './modules/decay/decay.module';
@@ -31,6 +34,9 @@ import { DecayModule } from './modules/decay/decay.module';
     RoomModule,
     ArtifactModule,
     AiReflectionModule,
+    GenomeModule,
+    ConstellationModule,
+    AudioModule,
     TimeCapsuleModule,
     SocketModule,
     DecayModule,
