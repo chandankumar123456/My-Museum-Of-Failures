@@ -1,4 +1,9 @@
-import { AiReflectionService } from './ai-reflection.service';
+import {
+  AiReflectionService,
+  CURATOR_PERSONAS,
+  isReflectionPersona,
+  reflectionSystemPrompt,
+} from './ai-reflection.service';
 
 /**
  * The AiReflectionService keeps two private helpers (`asString` and
@@ -42,6 +47,7 @@ function makePrismaStub() {
 }
 
 function makeService(jsonContent: string) {
+  process.env.OPENAI_API_KEY = 'test-key';
   const prisma = makePrismaStub();
   const service = new AiReflectionService(prisma as any);
   // Stub OpenAI client so no network calls fire.
@@ -107,5 +113,48 @@ describe('AiReflectionService.generateReflection coercion', () => {
     const data = prisma.calls[0].data;
     expect(typeof data.emotionalSummary).toBe('string');
     expect(Array.isArray(data.patterns)).toBe(true);
+  });
+});
+
+
+describe('Curator persona prompt layer', () => {
+  const personas = ['historian', 'engineer', 'therapist', 'founder', 'philosopher'] as const;
+
+  it('defines all five personas, each voiced with its own label', () => {
+    for (const p of personas) {
+      expect(CURATOR_PERSONAS[p]).toBeDefined();
+      expect(CURATOR_PERSONAS[p].voice).toContain(CURATOR_PERSONAS[p].label);
+    }
+  });
+
+  it('produces a distinct system prompt per persona, all sharing the JSON contract', () => {
+    const prompts = personas.map((p) => reflectionSystemPrompt(p));
+    expect(new Set(prompts).size).toBe(personas.length); // all distinct
+    for (const prompt of [...prompts, reflectionSystemPrompt(null)]) {
+      expect(prompt).toContain('emotionalSummary');
+      expect(prompt).toContain("Never return arrays for any field other than 'patterns'");
+    }
+    expect(reflectionSystemPrompt('engineer')).toContain('root causes');
+    expect(reflectionSystemPrompt(null)).toContain('melancholic');
+  });
+
+  it('validates persona identifiers', () => {
+    expect(isReflectionPersona('historian')).toBe(true);
+    expect(isReflectionPersona('curator')).toBe(false);
+    expect(isReflectionPersona('nonsense')).toBe(false);
+  });
+
+  it('persists a persona reflection keyed by persona', async () => {
+    const { service, prisma } = makeService(
+      JSON.stringify({
+        emotionalSummary: 'Through an engineer’s eyes.',
+        patterns: ['no rollback plan'],
+        reframing: 'The system, not the self, failed.',
+        observations: 'Add a safeguard next time.',
+      }),
+    );
+
+    await service.generatePersonaReflection('ex_1', 'engineer');
+    expect(prisma.calls[0].data.persona).toBe('engineer');
   });
 });
