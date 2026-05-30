@@ -77,6 +77,37 @@ enum ArtifactType {
   note
 }
 
+enum CuratorPersona {
+  historian
+  engineer
+  therapist
+  founder
+  philosopher
+}
+
+enum EvolutionStatus {
+  failed
+  ongoing
+  recovered
+  successful
+}
+
+enum FailureRelationType {
+  similar_emotion
+  similar_lesson
+  similar_category
+  similar_cause
+  same_user_journey
+}
+
+enum AudioStoryStatus {
+  uploaded
+  transcribing
+  processing
+  ready
+  failed
+}
+
 model User {
   id              String        @id @default(cuid())
   email           String?       @unique
@@ -131,16 +162,28 @@ model Exhibit {
 
   userId      String?
   roomId      String?
+  parentFailureId String?
+  evolutionStatus EvolutionStatus?
+  recoveredAt     DateTime?
+  embedding       Float[]          @default([])
+  impactScore     Int?
 
   user        User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   room        MuseumRoom? @relation(fields: [roomId], references: [id])
   legacyOf    User?       @relation("LegacyExhibit")
+  parent      Exhibit?    @relation("FailureEvolution", fields: [parentFailureId], references: [id], onDelete: SetNull)
+  children    Exhibit[]   @relation("FailureEvolution")
 
   artifacts     Artifact[]
   reactions     ExhibitReaction[]
   aiReflections AIReflection[]
+  genome        FailureGenome?
+  audioStory    AudioStory?
+  connectionsFrom FailureConnection[] @relation("ConnectionSource")
+  connectionsTo   FailureConnection[] @relation("ConnectionTarget")
 
   @@index([category])
+  @@index([parentFailureId])
   @@index([roomId])
   @@index([userId])
   @@index([createdAt])
@@ -208,13 +251,66 @@ model AIReflection {
   patterns         String[]
   reframing        String
   observations     String
+  persona          CuratorPersona?
   createdAt        DateTime @default(now())
 
   exhibitId String
   exhibit   Exhibit  @relation(fields: [exhibitId], references: [id], onDelete: Cascade)
 
+  @@unique([exhibitId, persona])
   @@index([exhibitId])
   @@map("ai_reflections")
+}
+
+model FailureGenome {
+  id          String   @id @default(cuid())
+  practical   Json
+  emotional   Json
+  model       String?
+  generatedAt DateTime @default(now())
+
+  exhibitId String  @unique
+  exhibit   Exhibit @relation(fields: [exhibitId], references: [id], onDelete: Cascade)
+
+  @@map("failure_genomes")
+}
+
+model FailureConnection {
+  id        String              @id @default(cuid())
+  sourceId  String
+  targetId  String
+  type      FailureRelationType
+  strength  Float               @default(0)
+  createdAt DateTime            @default(now())
+
+  source Exhibit @relation("ConnectionSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Exhibit @relation("ConnectionTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId, type])
+  @@index([sourceId])
+  @@index([targetId])
+  @@map("failure_connections")
+}
+
+model AudioStory {
+  id              String           @id @default(cuid())
+  status          AudioStoryStatus @default(uploaded)
+  r2Key           String
+  url             String?
+  mimeType        String
+  size            Int              @default(0)
+  duration        Float?
+  transcript      Json?
+  summary         String?
+  lessons         String[]
+  emotionTimeline Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  exhibitId String  @unique
+  exhibit   Exhibit @relation(fields: [exhibitId], references: [id], onDelete: Cascade)
+
+  @@map("audio_stories")
 }
 
 model TimeCapsule {
