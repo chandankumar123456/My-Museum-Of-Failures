@@ -40,6 +40,11 @@ export class ExhibitController {
     return this.exhibitService.getSimilar(id, Number(limit) || 5);
   }
 
+  @Get(':id/evolution')
+  getEvolution(@Param('id') id: string) {
+    return this.exhibitService.getEvolutionTree(id);
+  }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: Partial<CreateExhibitDto>) {
     return this.exhibitService.update(id, dto);
