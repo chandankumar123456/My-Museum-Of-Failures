@@ -1,22 +1,35 @@
 'use client';
 
 import { useState } from 'react';
+import { Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Input, Textarea, Button, Eyebrow } from '@/components/lamplit';
 
 interface TimeCapsuleCreateProps {
   userId: string;
   onSuccess?: () => void;
 }
 
+/**
+ * Lamplit Archive — Time capsule create form.
+ *
+ * Inline form rendered inside the time-capsule page. Uses lamplit
+ * `<Input>` / `<Textarea>` (bottom-border-only with brass focus underline)
+ * and `<Button>` (brass primary, full width). Mono-caps labels, restrained
+ * helper copy, no toast / modal — the parent collapses the form on
+ * success.
+ */
 export function TimeCapsuleCreate({ userId, onSuccess }: TimeCapsuleCreateProps) {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [unlockDate, setUnlockDate] = useState('');
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     if (!title || !message || !unlockDate) return;
     setCreating(true);
+    setError(null);
     try {
       await api.timeCapsule.create({ userId, title, message, unlockDate });
       onSuccess?.();
@@ -24,56 +37,65 @@ export function TimeCapsuleCreate({ userId, onSuccess }: TimeCapsuleCreateProps)
       setMessage('');
       setUnlockDate('');
     } catch {
-      // silent
+      setError('The seal would not hold. Try again in a moment.');
     } finally {
       setCreating(false);
     }
   };
 
-  return (
-    <div className="museum-card p-6 space-y-4">
-      <h3 className="font-serif text-xl text-whisper">Write to Your Future Self</h3>
-      <p className="text-sm text-whisper-dark font-light">
-        Seal a message. The museum will keep it until you&apos;re ready.
-      </p>
+  const canSubmit = Boolean(title && message && unlockDate);
 
-      <div>
-        <input
-          type="text"
-          placeholder="Capsule title"
+  return (
+    <div className="bg-paper border border-glass-edge rounded-lg p-8 md:p-10 space-y-8">
+      <div className="flex items-start gap-3">
+        <Lock className="w-5 h-5 text-brass mt-1" strokeWidth={1.5} />
+        <div className="space-y-1">
+          <Eyebrow>Write to your future self</Eyebrow>
+          <p className="font-sans text-[14px] leading-relaxed text-ink-muted max-w-[55ch]">
+            Seal a message. The archive will keep it locked until the date you
+            choose — not a day before.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <Input
+          label="Capsule title"
+          placeholder="A reflection on the shutdown of Project X"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-void border border-museum-800 rounded-sm px-4 py-2 text-whisper placeholder:text-museum-600 focus:border-ember/50 focus:outline-none"
         />
-      </div>
 
-      <div>
-        <textarea
-          placeholder="What do you want your future self to remember?"
+        <Textarea
+          label="Your reflection"
+          placeholder="What do you want your future self to remember? What did you learn?"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          rows={5}
-          className="w-full bg-void border border-museum-800 rounded-sm px-4 py-2 text-whisper placeholder:text-museum-600 focus:border-ember/50 focus:outline-none resize-none"
+          rows={6}
         />
-      </div>
 
-      <div>
-        <label className="block text-sm text-whisper-dark mb-1">Unlock Date</label>
-        <input
+        <Input
+          label="Unlock date"
           type="date"
           value={unlockDate}
           onChange={(e) => setUnlockDate(e.target.value)}
-          className="w-full bg-void border border-museum-800 rounded-sm px-4 py-2 text-whisper focus:border-ember/50 focus:outline-none"
+          helper="Choose a date in the future. It cannot be opened earlier."
         />
       </div>
 
-      <button
+      {error && (
+        <p className="font-mono text-[11px] tracking-tight text-rust">{error}</p>
+      )}
+
+      <Button
+        variant="primary"
+        size="md"
+        fullWidth
         onClick={submit}
-        disabled={creating || !title || !message || !unlockDate}
-        className="w-full py-2 bg-ember/20 border border-ember/50 rounded-sm text-ember hover:bg-ember/30 transition-colors disabled:opacity-30"
+        disabled={creating || !canSubmit}
       >
-        {creating ? 'Sealing...' : 'Seal Capsule'}
-      </button>
+        {creating ? 'Sealing the capsule…' : 'Seal the capsule'}
+      </Button>
     </div>
   );
 }
