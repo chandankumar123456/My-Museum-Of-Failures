@@ -8,17 +8,22 @@ import { toast } from 'sonner';
 import { useAuthStore, type IdentityMode } from '@/stores/auth-store';
 import { api } from '@/lib/api';
 
+/**
+ * Lamplit Archive — IdentityBadge.
+ *
+ * A small mono-caps badge that exposes the current visibility mode and
+ * lets the visitor switch between Anonymous / Pseudonym / Real Name.
+ * Lives inside the top navigation. Popover is paper-tinted with a
+ * hairline glass-edge border.
+ */
+
 const MODE_LABELS: Record<IdentityMode, string> = {
   anonymous: 'Anonymous',
   pseudonym: 'Pseudonym',
   real_name: 'Real Name',
 };
 
-const MODE_COLORS: Record<IdentityMode, string> = {
-  anonymous: 'text-museum-500',
-  pseudonym: 'text-amber-400/80',
-  real_name: 'text-ember',
-};
+const SPRING = { type: 'spring' as const, stiffness: 110, damping: 22, mass: 0.9 };
 
 export function IdentityBadge() {
   const router = useRouter();
@@ -28,7 +33,7 @@ export function IdentityBadge() {
 
   if (!userId) {
     return (
-      <span className="text-xs text-museum-700 font-mono uppercase tracking-wider">
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-whisper">
         offline
       </span>
     );
@@ -38,14 +43,12 @@ export function IdentityBadge() {
     setBusy(true);
     try {
       await api.auth.updateIdentityMode(userId, mode);
-      setIdentityMode(mode);
     } catch {
-      // Best-effort: keep local state in sync optimistically
-      setIdentityMode(mode);
-    } finally {
-      setBusy(false);
-      setOpen(false);
+      // best-effort: keep local state consistent
     }
+    setIdentityMode(mode);
+    setBusy(false);
+    setOpen(false);
   };
 
   const signOut = async () => {
@@ -53,12 +56,12 @@ export function IdentityBadge() {
     try {
       await api.auth.logout();
     } catch {
-      /* ignore — clearing locally is what matters */
+      /* ignore */
     }
     clear();
     setBusy(false);
     setOpen(false);
-    toast('You stepped out of the museum. The exhibits remain.');
+    toast('You stepped out of the archive. The exhibits remain.');
     router.push('/');
   };
 
@@ -66,12 +69,12 @@ export function IdentityBadge() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-whisper-dark hover:text-whisper transition-colors"
+        className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted hover:text-brass transition-colors"
         title="Identity menu"
       >
-        <span className={MODE_COLORS[identityMode]}>●</span>
+        <span className="text-brass">●</span>
         <span className="hidden sm:inline">
-          {displayName ? displayName : MODE_LABELS[identityMode]}
+          {displayName || MODE_LABELS[identityMode]}
         </span>
       </button>
 
@@ -81,10 +84,10 @@ export function IdentityBadge() {
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-56 museum-card p-2 shadow-lg shadow-void z-50"
+            transition={SPRING}
+            className="absolute right-0 top-full mt-2 w-60 bg-paper border border-glass-edge rounded-md p-2 shadow-[0_10px_30px_rgba(23,21,20,0.08)] z-50"
           >
-            <p className="text-[10px] uppercase tracking-wider text-museum-600 px-2 pt-1 pb-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-whisper px-2 pt-1 pb-2">
               Visibility
             </p>
             {(Object.keys(MODE_LABELS) as IdentityMode[]).map((mode) => (
@@ -92,24 +95,24 @@ export function IdentityBadge() {
                 key={mode}
                 onClick={() => updateMode(mode)}
                 disabled={busy}
-                className={`w-full text-left px-2 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-2 ${
+                className={`w-full text-left px-2 py-1.5 text-[14px] rounded-sm transition-colors flex items-center gap-2 ${
                   identityMode === mode
-                    ? 'bg-ember/10 text-ember'
-                    : 'text-whisper-dark hover:bg-void hover:text-whisper'
+                    ? 'bg-brass-soft text-brass'
+                    : 'text-ink-muted hover:bg-vellum hover:text-ink'
                 }`}
               >
-                <span className={MODE_COLORS[mode]}>●</span>
+                <span className={identityMode === mode ? 'text-brass' : 'text-whisper'}>●</span>
                 {MODE_LABELS[mode]}
               </button>
             ))}
 
-            <div className="my-2 museum-divider" />
+            <div className="my-2 h-px bg-glass-edge" />
 
             {isAnonymous ? (
               <Link
                 href="/auth"
                 onClick={() => setOpen(false)}
-                className="block w-full text-left px-2 py-1.5 text-sm rounded-sm text-whisper hover:bg-void hover:text-ember transition-colors"
+                className="block w-full text-left px-2 py-1.5 text-[14px] rounded-sm text-ink hover:bg-vellum hover:text-brass transition-colors"
               >
                 Sign in or register →
               </Link>
@@ -117,7 +120,7 @@ export function IdentityBadge() {
               <button
                 onClick={signOut}
                 disabled={busy}
-                className="w-full text-left px-2 py-1.5 text-sm rounded-sm text-whisper-dark hover:bg-void hover:text-whisper transition-colors"
+                className="w-full text-left px-2 py-1.5 text-[14px] rounded-sm text-ink-muted hover:bg-vellum hover:text-ink transition-colors"
               >
                 Sign out
               </button>
