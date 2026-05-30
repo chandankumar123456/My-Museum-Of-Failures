@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { HealthModule } from './modules/health/health.module';
 import { ExhibitModule } from './modules/exhibit/exhibit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EmotionModule } from './modules/emotion/emotion.module';
@@ -28,6 +29,7 @@ import { DecayModule } from './modules/decay/decay.module';
       { name: 'long', ttl: 5 * 60_000, limit: 600 },
     ]),
     PrismaModule,
+    HealthModule,
     ExhibitModule,
     AuthModule,
     EmotionModule,
