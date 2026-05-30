@@ -1,19 +1,31 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, EB_Garamond, JetBrains_Mono } from 'next/font/google';
+import { Fraunces, Geist, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { AudioManager } from '@/components/audio/audio-manager';
 import { CuratorChat } from '@/components/ai/curator-chat';
+import { Lamplit3D } from '@/components/lamplit-3d';
 
-const inter = Inter({
+/**
+ * Lamplit Archive — typography (Phase 20).
+ *
+ * Fraunces is the canonical display + body essay serif (replacing the retired
+ * EB Garamond). Geist is the UI / body sans (replacing DM Sans + Inter).
+ * JetBrains Mono is reserved for plaque IDs, timestamps, and labelled metadata.
+ *
+ * Each font exposes a CSS variable that `@theme` in `globals.css` consumes via
+ * `--font-display`, `--font-sans`, and `--font-mono`.
+ */
+const fraunces = Fraunces({
   subsets: ['latin'],
-  variable: '--font-sans',
+  variable: '--font-display',
   display: 'swap',
+  axes: ['opsz'],
 });
 
-const ebGaramond = EB_Garamond({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-serif',
+  variable: '--font-sans',
   display: 'swap',
 });
 
@@ -21,10 +33,12 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
+  weight: ['400', '500'],
 });
 
 export const viewport: Viewport = {
-  themeColor: '#0d0b0a',
+  // Lamplit Bone canvas — warm cream, never #FFFFFF.
+  themeColor: '#F4EFE6',
 };
 
 export const metadata: Metadata = {
@@ -62,12 +76,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
-      <body className={`${inter.variable} ${ebGaramond.variable} ${jetbrainsMono.variable} font-sans relative film-grain`}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${fraunces.variable} ${geist.variable} ${jetbrainsMono.variable} font-sans bg-bone text-ink antialiased`}
+      >
         <Providers>
-          {children}
-          <AudioManager />
-          <CuratorChat />
+          <Lamplit3D>
+            {children}
+            <AudioManager />
+            <CuratorChat />
+          </Lamplit3D>
         </Providers>
       </body>
     </html>
