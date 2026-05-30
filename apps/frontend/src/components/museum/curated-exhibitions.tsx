@@ -57,7 +57,7 @@ export function CuratedExhibitions() {
               <Link
                 key={exhibit.id}
                 href={`/exhibits/${exhibit.id}`}
-                className="block p-3 rounded-sm border border-museum-800 hover:border-ember/30 transition-colors"
+                className="block p-3 rounded-md border border-museum-800 hover:border-ember/30 transition-colors"
               >
                 <div className="text-sm text-whisper truncate">{exhibit.title}</div>
               </Link>
