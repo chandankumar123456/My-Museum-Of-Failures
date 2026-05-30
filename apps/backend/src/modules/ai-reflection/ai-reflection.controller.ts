@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Param, Body } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, BadRequestException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AiReflectionService } from './ai-reflection.service';
+import { AiReflectionService, isReflectionPersona } from './ai-reflection.service';
 
 /**
  * AI endpoints carry the strictest throttling because each call costs
@@ -16,6 +16,20 @@ export class AiReflectionController {
   @Post('generate/:exhibitId')
   generateReflection(@Param('exhibitId') exhibitId: string) {
     return this.aiReflectionService.generateReflection(exhibitId);
+  }
+
+  // Per-persona reflection. Higher limit than the default so a visitor can open
+  // several persona tabs in one session; each (exhibit, persona) is cached after.
+  @Throttle({ default: { ttl: 5 * 60_000, limit: 15 } })
+  @Post('generate/:exhibitId/:persona')
+  generatePersonaReflection(
+    @Param('exhibitId') exhibitId: string,
+    @Param('persona') persona: string,
+  ) {
+    if (!isReflectionPersona(persona)) {
+      throw new BadRequestException('Unknown curator persona');
+    }
+    return this.aiReflectionService.generatePersonaReflection(exhibitId, persona);
   }
 
   @Get('curated-exhibitions')
