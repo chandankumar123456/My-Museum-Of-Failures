@@ -57,6 +57,7 @@ export const api = {
     }),
     remove: (id: string) => request<unknown>(`/exhibits/${id}`, { method: 'DELETE' }),
     similar: (id: string) => request<unknown[]>(`/exhibits/${id}/similar`),
+    evolution: (id: string) => request<unknown>(`/exhibits/${id}/evolution`),
     emotionalSearch: (q: string) => request<unknown[]>(
       `/exhibits/emotional-search?q=${encodeURIComponent(q)}`,
     ),
@@ -105,9 +106,43 @@ export const api = {
       reframing: string;
       observations: string;
     }>(`/ai-reflection/generate/${exhibitId}`, { method: 'POST' }),
+    generatePersonaReflection: (exhibitId: string, persona: string) => request<{
+      emotionalSummary: string;
+      patterns: string[];
+      reframing: string;
+      observations: string;
+      persona?: string;
+    }>(`/ai-reflection/generate/${exhibitId}/${persona}`, { method: 'POST' }),
     curatedExhibitions: () => request<unknown[]>('/ai-reflection/curated-exhibitions'),
     curatorChat: (message: string, context?: { recentExhibits?: string[] }) =>
       request<{ message: string; role: string }>('/ai-reflection/curator', json({ message, context })),
+  },
+  genome: {
+    generate: (exhibitId: string) =>
+      request<unknown>(`/genome/generate/${exhibitId}`, { method: 'POST' }),
+    compare: (aId: string, bId: string) => request<unknown>(`/genome/compare/${aId}/${bId}`),
+  },
+  constellation: {
+    graph: () => request<unknown>('/constellation/graph'),
+    rebuild: () => request<unknown>('/constellation/rebuild', { method: 'POST' }),
+  },
+  audio: {
+    get: (exhibitId: string) => request<unknown>(`/audio/${exhibitId}`),
+    process: (exhibitId: string) =>
+      request<unknown>(`/audio/${exhibitId}/process`, { method: 'POST' }),
+    remove: (exhibitId: string) => request<unknown>(`/audio/${exhibitId}`, { method: 'DELETE' }),
+    upload: (exhibitId: string, file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return fetch(`${API_BASE}/audio/${exhibitId}`, {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
+      }).then(async (r) => {
+        if (!r.ok) throw new ApiError(r.status, 'Audio upload failed');
+        return r.json();
+      });
+    },
   },
   timeCapsule: {
     create: (data: { userId: string; title: string; message: string; unlockDate: string }) =>
