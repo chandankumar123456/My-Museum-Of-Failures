@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Button, Eyebrow } from '@/components/lamplit';
+import { reportError } from '@/lib/report-error';
 
 /**
  * Lamplit Archive — route error boundary. Catches runtime errors in a
@@ -18,7 +19,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    reportError(error, { boundary: 'route', digest: error.digest });
   }, [error]);
 
   return (

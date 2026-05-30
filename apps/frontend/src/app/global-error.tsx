@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { reportError } from '@/lib/report-error';
+
 /**
  * Root error boundary. Replaces the whole document (including the layout)
  * when an error escapes the root layout, so it must render its own
@@ -7,11 +10,16 @@
  * Lamplit palette (bone canvas, ink text, brass accent).
  */
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    reportError(error, { boundary: 'global', digest: error.digest });
+  }, [error]);
+
   return (
     <html lang="en">
       <body
