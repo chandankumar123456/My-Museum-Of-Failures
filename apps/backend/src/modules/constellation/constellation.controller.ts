@@ -1,6 +1,7 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ConstellationService } from './constellation.service';
+import { SessionGuard } from '../auth/session.guard';
 
 @Controller('constellation')
 export class ConstellationController {
@@ -12,6 +13,7 @@ export class ConstellationController {
   }
 
   @Post('rebuild')
+  @UseGuards(SessionGuard)
   @Throttle({ default: { ttl: 5 * 60_000, limit: 3 } })
   rebuild() {
     return this.constellationService.rebuild();
