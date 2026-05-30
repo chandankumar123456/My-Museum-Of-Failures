@@ -3,66 +3,91 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { ExhibitView } from '@museum/shared';
-import { MuseumLayout } from '@/components/museum/museum-layout';
-import { ExhibitDetail } from '@/components/exhibits/exhibit-detail';
-import { ReactionButtons } from '@/components/emotions/reaction-buttons';
-import { YouAreNotAlone } from '@/components/emotions/you-are-not-alone';
-import { ReflectionPanel } from '@/components/ai/reflection-panel';
 import { api } from '@/lib/api';
+import { MuseumNavigation } from '@/components/museum/navigation';
+import { ExhibitDetail } from '@/components/exhibits/exhibit-detail';
+import { EmptyComposed } from '@/components/lamplit';
+import { useRoomTint } from '@/components/lamplit-3d';
 
+/**
+ * Lamplit Archive — `/exhibits/[id]` wrapper.
+ *
+ * Loads the exhibit from the API and hands it to `<ExhibitDetail>`. Sets
+ * the ambient tint to brass (no per-room scope on a generic detail
+ * page — pages reached from inside a room can override via state).
+ */
 export default function ExhibitPage() {
   const params = useParams();
+  const id = params?.id as string | undefined;
+
+  const { setRoomTint } = useRoomTint();
+  useEffect(() => {
+    setRoomTint('brass');
+  }, [setRoomTint]);
+
   const [exhibit, setExhibit] = useState<ExhibitView | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!params?.id) return;
+    if (!id) return;
+    setLoading(true);
     api.exhibits
-      .get(params.id as string)
+      .get(id)
       .then((data) => setExhibit(data as ExhibitView))
       .catch(() => setExhibit(null))
       .finally(() => setLoading(false));
-  }, [params?.id]);
-
-  if (loading) {
-    return (
-      <MuseumLayout>
-        <div className="max-w-4xl mx-auto px-4 py-12">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-museum-800 rounded w-1/4" />
-            <div className="h-10 bg-museum-800 rounded w-3/4" />
-            <div className="h-4 bg-museum-800 rounded w-1/2" />
-            <div className="grid grid-cols-2 gap-8 mt-8">
-              <div className="h-48 bg-museum-800 rounded" />
-              <div className="h-48 bg-museum-800 rounded" />
-            </div>
-          </div>
-        </div>
-      </MuseumLayout>
-    );
-  }
-
-  if (!exhibit) {
-    return (
-      <MuseumLayout>
-        <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <p className="font-serif text-2xl text-museum-600">This exhibit has been lost to time.</p>
-        </div>
-      </MuseumLayout>
-    );
-  }
+  }, [id]);
 
   return (
-    <MuseumLayout>
-      <ExhibitDetail exhibit={exhibit} />
+    <>
+      <MuseumNavigation />
+      <main className="min-h-[100dvh] bg-bone text-ink">
+        {loading ? (
+          <ExhibitSkeleton />
+        ) : !exhibit ? (
+          <div className="max-w-[1440px] mx-auto px-6 md:px-12 py-32">
+            <EmptyComposed
+              title="This exhibit has been lost to time."
+              caption="The preservation may have been retired, or the link is no longer valid."
+            />
+          </div>
+        ) : (
+          <ExhibitDetail exhibit={exhibit} />
+        )}
+      </main>
+    </>
+  );
+}
 
-      <div className="max-w-4xl mx-auto px-4 pb-12 space-y-6">
-        <ReactionButtons exhibitId={exhibit.id} />
-
-        <ReflectionPanel exhibitId={exhibit.id} />
-
-        <YouAreNotAlone exhibitId={exhibit.id} />
+function ExhibitSkeleton() {
+  return (
+    <div className="max-w-[1440px] mx-auto px-6 md:px-12 py-16 md:py-24 animate-pulse">
+      <div className="h-3 w-48 bg-vellum rounded-sm mb-12" />
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-end">
+        <div className="md:col-span-8 space-y-4">
+          <div className="h-3 w-32 bg-vellum rounded-sm" />
+          <div className="h-12 w-3/4 bg-vellum rounded-sm" />
+          <div className="h-3 w-1/2 bg-vellum rounded-sm" />
+        </div>
+        <div className="md:col-span-4 space-y-2">
+          <div className="h-3 w-full bg-vellum rounded-sm" />
+          <div className="h-px w-full bg-vellum" />
+        </div>
       </div>
-    </MuseumLayout>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 mt-16">
+        <div className="lg:col-span-8 space-y-6">
+          <div className="h-3 w-24 bg-vellum rounded-sm" />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-3 w-full bg-vellum rounded-sm" />
+          ))}
+        </div>
+        <div className="lg:col-span-4 bg-paper border border-glass-edge rounded-lg p-8 space-y-4">
+          <div className="h-3 w-24 bg-vellum rounded-sm" />
+          <div className="h-3 w-full bg-vellum rounded-sm" />
+          <div className="h-3 w-3/4 bg-vellum rounded-sm" />
+          <div className="h-3 w-1/2 bg-vellum rounded-sm" />
+        </div>
+      </div>
+    </div>
   );
 }
