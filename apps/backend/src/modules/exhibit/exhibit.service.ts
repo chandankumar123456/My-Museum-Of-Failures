@@ -7,6 +7,7 @@ import {
   RecoveryStatusType,
   VisibilityMode,
   MuseumRoomSlug,
+  EvolutionStatus,
   Prisma,
 } from '@prisma/client';
 
@@ -30,6 +31,8 @@ export interface CreateExhibitDto {
   roomSlug?: string;
   isOneSentence?: boolean;
   isUnfinished?: boolean;
+  parentFailureId?: string;
+  evolutionStatus?: EvolutionStatus;
   userId?: string;
 }
 
@@ -42,6 +45,7 @@ export interface CreateExhibitDto {
 export interface ExhibitFilters {
   category?: ExhibitionCategory;
   roomId?: string;
+  userId?: string;
   endingStatus?: EndingStatusType;
   recoveryStatus?: RecoveryStatusType;
   minPain?: number | string;
@@ -109,6 +113,12 @@ export class ExhibitService {
         isUnfinished: dto.isUnfinished ?? false,
         roomId,
         userId: dto.userId ?? null,
+        ...(dto.parentFailureId ? { parentFailureId: dto.parentFailureId } : {}),
+        evolutionStatus: dto.evolutionStatus ?? null,
+        recoveredAt:
+          dto.evolutionStatus === 'recovered' || dto.evolutionStatus === 'successful'
+            ? new Date()
+            : null,
       },
       include: {
         artifacts: true,
@@ -171,6 +181,7 @@ export class ExhibitService {
 
     if (filters?.category) where.category = filters.category;
     if (filters?.roomId) where.roomId = filters.roomId;
+    if (filters?.userId) where.userId = filters.userId;
     if (filters?.endingStatus) where.endingStatus = filters.endingStatus;
     if (filters?.recoveryStatus) where.recoveryStatus = filters.recoveryStatus;
     if (minPain !== undefined || maxPain !== undefined) {
@@ -252,6 +263,109 @@ export class ExhibitService {
     return similar;
   }
 
+  /**
+   * Build the full evolution lineage for an exhibit: walk up to the root,
+   * then breadth-first down collecting every descendant, returning a nested
+   * tree plus recovery metrics. A failure's lineage is small, so the
+   * O(depth) query walk is intentional and avoids a recursive SQL CTE.
+   */
+  async getEvolutionTree(id: string) {
+    const start = await this.prisma.exhibit.findUnique({
+      where: { id },
+      select: { id: true, parentFailureId: true },
+    });
+    if (!start) throw new NotFoundException('Exhibit not found');
+
+    // Walk up to the root (cycle-guarded).
+    let rootId = start.id;
+    let parentId = start.parentFailureId;
+    const seen = new Set<string>([start.id]);
+    while (parentId && !seen.has(parentId)) {
+      seen.add(parentId);
+      rootId = parentId;
+      const p = await this.prisma.exhibit.findUnique({
+        where: { id: parentId },
+        select: { id: true, parentFailureId: true },
+      });
+      if (!p) break;
+      parentId = p.parentFailureId;
+    }
+
+    const select = {
+      id: true,
+      exhibitId: true,
+      title: true,
+      category: true,
+      painLevel: true,
+      evolutionStatus: true,
+      recoveryStatus: true,
+      lessonLearned: true,
+      parentFailureId: true,
+      createdAt: true,
+      recoveredAt: true,
+    } as const;
+
+    const root = await this.prisma.exhibit.findUnique({ where: { id: rootId }, select });
+    if (!root) throw new NotFoundException('Exhibit not found');
+
+    // Breadth-first down from the root (cycle- and size-guarded).
+    const all = [root];
+    const guard = new Set<string>([root.id]);
+    let frontier = [root.id];
+    while (frontier.length && all.length < 200) {
+      const children = await this.prisma.exhibit.findMany({
+        where: { parentFailureId: { in: frontier } },
+        select,
+        orderBy: { createdAt: 'asc' },
+      });
+      frontier = [];
+      for (const c of children) {
+        if (guard.has(c.id)) continue;
+        guard.add(c.id);
+        all.push(c);
+        frontier.push(c.id);
+      }
+    }
+
+    type Row = (typeof all)[number];
+    const childrenByParent = new Map<string, Row[]>();
+    for (const n of all) {
+      if (!n.parentFailureId) continue;
+      const arr = childrenByParent.get(n.parentFailureId) ?? [];
+      arr.push(n);
+      childrenByParent.set(n.parentFailureId, arr);
+    }
+    const build = (node: Row): Row & { children: unknown[] } => ({
+      ...node,
+      children: (childrenByParent.get(node.id) ?? []).map(build),
+    });
+
+    const recovered = all.filter(
+      (n) => n.evolutionStatus === 'recovered' || n.evolutionStatus === 'successful',
+    );
+    const lastRecovered = recovered.reduce<Row | null>(
+      (a, b) => (!a || b.createdAt > a.createdAt ? b : a),
+      null,
+    );
+    const recoveredAt = lastRecovered?.recoveredAt ?? null;
+    const timeToRecoverDays = recoveredAt
+      ? Math.max(0, Math.round((recoveredAt.getTime() - root.createdAt.getTime()) / 86_400_000))
+      : null;
+
+    return {
+      rootId,
+      focusId: id,
+      tree: build(root),
+      metrics: {
+        attempts: all.length,
+        retries: Math.max(0, all.length - 1),
+        recovered: recovered.length > 0,
+        timeToRecoverDays,
+        lessons: recovered.map((n) => n.lessonLearned).filter(Boolean),
+      },
+    };
+  }
+
   async update(id: string, data: Partial<CreateExhibitDto>) {
     const exhibit = await this.prisma.exhibit.findUnique({ where: { id } });
     if (!exhibit) throw new NotFoundException('Exhibit not found');
@@ -270,6 +384,12 @@ export class ExhibitService {
         ...(data.endingStatus && { endingStatus: data.endingStatus }),
         ...(data.recoveryStatus && { recoveryStatus: data.recoveryStatus }),
         ...(data.emotionalTags && { emotionalTags: data.emotionalTags }),
+        ...(data.parentFailureId !== undefined && {
+          parentFailureId: data.parentFailureId || null,
+        }),
+        ...(data.evolutionStatus && { evolutionStatus: data.evolutionStatus }),
+        ...((data.evolutionStatus === 'recovered' || data.evolutionStatus === 'successful') &&
+          !exhibit.recoveredAt && { recoveredAt: new Date() }),
       },
       include: {
         artifacts: true,
