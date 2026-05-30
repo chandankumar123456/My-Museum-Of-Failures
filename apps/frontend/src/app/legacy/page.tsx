@@ -3,13 +3,33 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { MuseumLayout } from '@/components/museum/museum-layout';
-import { ExhibitCard } from '@/components/exhibits/exhibit-card';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api';
 import type { ExhibitView, ExhibitListView } from '@museum/shared';
+import { MuseumNavigation } from '@/components/museum/navigation';
+import {
+  Eyebrow,
+  EngravedDivider,
+  Button,
+  EmptyComposed,
+  ExhibitCard,
+} from '@/components/lamplit';
+import { useRoomTint } from '@/components/lamplit-3d';
+import { fadeUp, stagger } from '@/lib/motion';
 
+/**
+ * Lamplit Archive — Legacy Vault (`/legacy`).
+ *
+ * One pinned exhibit at a time. The current legacy is spotlit at the top
+ * (paper card with brass border + brass plaque badge). Below, a list of
+ * candidate exhibits the visitor can pin from.
+ */
 export default function LegacyPage() {
+  const { setRoomTint } = useRoomTint();
+  useEffect(() => {
+    setRoomTint('brass');
+  }, [setRoomTint]);
+
   const { userId } = useAuthStore();
   const [legacy, setLegacy] = useState<ExhibitView | null>(null);
   const [exhibits, setExhibits] = useState<ExhibitView[]>([]);
@@ -17,7 +37,10 @@ export default function LegacyPage() {
   const [pinning, setPinning] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     Promise.all([
       api.timeCapsule.getLegacy(userId).catch(() => null),
@@ -43,82 +66,209 @@ export default function LegacyPage() {
   };
 
   return (
-    <MuseumLayout>
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-10 text-center">
-          <span className="text-4xl block mb-2">🏛️</span>
-          <h1 className="font-serif text-4xl text-whisper-light mb-2">Legacy Vault</h1>
-          <p className="text-whisper-dark font-light">
-            Choose one failure to preserve forever. The rest of the museum may decay; the legacy
-            never will.
-          </p>
-        </motion.div>
+    <>
+      <MuseumNavigation />
 
-        {!userId ? (
-          <div className="museum-card p-8 text-center">
-            <p className="text-museum-600 font-serif text-lg">Connecting to the museum…</p>
-            <p className="text-museum-700 text-sm mt-2">
-              Your visitor session is still being created.
-            </p>
-          </div>
-        ) : (
-          <>
-            <section className="mb-10">
-              <h2 className="text-xs uppercase tracking-[0.3em] text-museum-600 mb-3">
-                Current Legacy
-              </h2>
-              {legacy ? (
-                <Link
-                  href={`/exhibits/${legacy.id}`}
-                  className="block museum-card p-6 border-ember/30 museum-glow hover:border-ember transition-colors"
-                >
-                  <h3 className="font-serif text-2xl text-whisper-light">{legacy.title}</h3>
-                  <p className="text-sm text-whisper-dark mt-1 capitalize">
-                    {legacy.endingStatus?.replace(/_/g, ' ')}
-                  </p>
-                </Link>
-              ) : (
-                <div className="museum-card p-6 border-museum-800 text-museum-600 italic font-serif">
-                  No legacy chosen yet. Pin one of your exhibits below.
-                </div>
-              )}
-            </section>
+      <main className="min-h-[100dvh] bg-bone text-ink">
+        <div className="max-w-[1440px] mx-auto px-6 md:px-12 py-16 md:py-24">
+          <Header />
 
-            <section>
-              <h2 className="text-xs uppercase tracking-[0.3em] text-museum-600 mb-3">
-                Pin a Legacy
-              </h2>
-              {loading ? (
-                <p className="text-museum-700">Loading exhibits…</p>
-              ) : exhibits.length === 0 ? (
-                <p className="text-museum-700">No exhibits to pin yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {exhibits.map((exhibit, i) => (
-                    <div key={exhibit.id} className="relative">
-                      <ExhibitCard exhibit={exhibit} index={i} />
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          pinAsLegacy(exhibit.id);
-                        }}
-                        disabled={pinning === exhibit.id || legacy?.id === exhibit.id}
-                        className="absolute top-3 right-3 text-[10px] uppercase tracking-wider px-2 py-1 border border-museum-800 rounded-sm bg-void/80 text-whisper-dark hover:border-ember/50 hover:text-ember transition-colors disabled:opacity-30"
-                      >
-                        {legacy?.id === exhibit.id
-                          ? 'Pinned'
-                          : pinning === exhibit.id
-                            ? 'Pinning…'
-                            : 'Pin'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
-        )}
+          {!userId ? (
+            <SignInGate />
+          ) : (
+            <>
+              <CurrentLegacy legacy={legacy} loading={loading} />
+
+              <EngravedDivider label="// PIN A LEGACY" />
+
+              <section className="mt-12">
+                {loading ? (
+                  <SkeletonGrid />
+                ) : exhibits.length === 0 ? (
+                  <EmptyComposed
+                    title="No exhibits to pin yet."
+                    caption="Preserve a failure first — then return here to choose your legacy."
+                    action={
+                      <Link href="/exhibits/create">
+                        <Button variant="primary" size="md">
+                          Preserve a failure
+                        </Button>
+                      </Link>
+                    }
+                  />
+                ) : (
+                  <CandidateGrid
+                    exhibits={exhibits}
+                    legacyId={legacy?.id ?? null}
+                    pinning={pinning}
+                    onPin={pinAsLegacy}
+                  />
+                )}
+              </section>
+            </>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+
+// ---- Header --------------------------------------------------------------
+
+function Header() {
+  return (
+    <header className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-12">
+      <div className="md:col-span-7">
+        <Eyebrow>Legacy Vault · 012</Eyebrow>
+        <h1 className="mt-4 font-display text-[clamp(2.5rem,4vw,4rem)] leading-[1.05] tracking-tight text-ink">
+          One artifact, kept forever.
+        </h1>
+        <p className="mt-6 font-display italic text-[clamp(1.125rem,1.4vw,1.375rem)] leading-relaxed text-ink-muted max-w-[55ch]">
+          Choose one of your preservations as a permanent plaque on the wall.
+          The rest of the archive may quietly retire — your legacy will not.
+        </p>
       </div>
-    </MuseumLayout>
+    </header>
+  );
+}
+
+// ---- Sign-in gate --------------------------------------------------------
+
+function SignInGate() {
+  return (
+    <motion.div
+      variants={fadeUp}
+      initial="hidden"
+      animate="visible"
+      className="max-w-xl mx-auto bg-paper border border-glass-edge rounded-lg p-12 text-center"
+    >
+      <p className="font-display italic text-[clamp(1.5rem,2vw,1.875rem)] text-ink mb-3">
+        Only registered archivists may pin a legacy.
+      </p>
+      <p className="font-sans text-[14px] leading-relaxed text-ink-muted mb-8">
+        Anonymous visitors can read and preserve, but the legacy plaque needs
+        a name to engrave.
+      </p>
+      <Link href="/auth">
+        <Button variant="primary" size="md">
+          Sign in or register
+        </Button>
+      </Link>
+    </motion.div>
+  );
+}
+
+// ---- Current legacy ------------------------------------------------------
+
+function CurrentLegacy({
+  legacy,
+  loading,
+}: {
+  legacy: ExhibitView | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="bg-paper border border-glass-edge rounded-lg p-8 mb-16 animate-pulse h-32" />
+    );
+  }
+
+  return (
+    <section className="mb-16">
+      <Eyebrow>Currently pinned</Eyebrow>
+      {legacy ? (
+        <Link
+          href={`/exhibits/${legacy.id}`}
+          className="block mt-4 bg-paper border border-brass/60 rounded-lg p-8 md:p-10 transition-colors hover:border-brass"
+        >
+          <div className="flex items-start justify-between gap-6 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-brass">
+                Plaque · {(legacy.endingStatus ?? 'archived').replace(/_/g, ' ')}
+              </span>
+              <h2 className="mt-3 font-display text-[clamp(1.75rem,2.4vw,2.5rem)] leading-snug text-ink">
+                {legacy.title}
+              </h2>
+              {legacy.lessonLearned && (
+                <p className="mt-4 font-display italic text-[clamp(1rem,1.2vw,1.125rem)] leading-relaxed text-ink-muted max-w-[55ch]">
+                  "{legacy.lessonLearned}"
+                </p>
+              )}
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-brass shrink-0 self-start inline-flex items-center">
+              <span className="brass-tick" aria-hidden />
+              Legacy
+            </span>
+          </div>
+        </Link>
+      ) : (
+        <p className="mt-4 font-display italic text-[clamp(1.125rem,1.4vw,1.375rem)] text-ink-muted">
+          No legacy chosen yet. Pin one of your exhibits below.
+        </p>
+      )}
+    </section>
+  );
+}
+
+// ---- Candidate grid ------------------------------------------------------
+
+function CandidateGrid({
+  exhibits,
+  legacyId,
+  pinning,
+  onPin,
+}: {
+  exhibits: ExhibitView[];
+  legacyId: string | null;
+  pinning: string | null;
+  onPin: (id: string) => void;
+}) {
+  return (
+    <motion.div
+      variants={stagger}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-1 md:grid-cols-2 gap-6"
+    >
+      {exhibits.map((exhibit, i) => {
+        const isPinned = legacyId === exhibit.id;
+        const isPinning = pinning === exhibit.id;
+        return (
+          <div key={exhibit.id} className="relative">
+            <ExhibitCard exhibit={exhibit} index={i} />
+            <button
+              onClick={() => onPin(exhibit.id)}
+              disabled={isPinned || isPinning}
+              className={`absolute top-4 right-4 px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-[0.16em] transition-colors border ${
+                isPinned
+                  ? 'border-brass bg-brass-soft text-brass cursor-default'
+                  : 'border-glass-edge bg-paper text-ink-muted hover:border-brass hover:text-brass'
+              } disabled:opacity-50`}
+            >
+              {isPinned ? (
+                <span className="inline-flex items-center"><span className="brass-tick" aria-hidden />Pinned</span>
+              ) : isPinning ? 'Pinning…' : 'Pin'}
+            </button>
+          </div>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {[0, 1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="bg-paper border border-glass-edge rounded-lg p-8 min-h-[260px] animate-pulse flex flex-col gap-3"
+        >
+          <div className="h-3 w-24 bg-vellum rounded-sm" />
+          <div className="h-7 w-3/4 bg-vellum rounded-sm" />
+          <div className="h-3 w-full bg-vellum rounded-sm" />
+        </div>
+      ))}
+    </div>
   );
 }
