@@ -285,7 +285,65 @@ curator persona prompts, and genome clamping + similarity math.
 
 ---
 
-## 12. Security notes
+## 12. Deployment
+
+The app deploys as **two independent Node services** — the NestJS API and the
+Next.js frontend — plus a **managed PostgreSQL** database. Build images need
+Node 22 (pnpm 11.1.2 requires ≥ 22.13) and pnpm 11.
+
+### Build (from the repo root)
+
+```bash
+pnpm install --frozen-lockfile
+pnpm db:generate     # generate the Prisma client
+pnpm build           # turbo builds @museum/backend + @museum/frontend
+```
+
+### Backend — `apps/backend`
+
+```bash
+pnpm db:push                              # apply schema.prisma (no migrations — see §3)
+pnpm --filter @museum/backend start:prod  # node dist/main, listens on $PORT (default 4000)
+```
+
+Required env (see §4): `DATABASE_URL`, `JWT_SECRET` (set a strong secret — prod
+logs a loud error if the dev fallback is used), `FRONTEND_URL` (the deployed
+frontend origin, for CORS), `PORT`. Optional: `OPENAI_API_KEY`, `AI_MODEL`, the
+`R2_*` storage keys, `CONSTELLATION_AUTO_REBUILD`. Set `NODE_ENV=production` to
+enable the strict Helmet CSP and `Secure` cookies.
+
+Probes for your platform / load balancer:
+- Liveness: `GET /health`
+- Readiness: `GET /health/ready` (503 until the database answers)
+
+### Frontend — `apps/frontend`
+
+```bash
+pnpm --filter @museum/frontend build
+pnpm --filter @museum/frontend start      # next start, port 3000
+```
+
+Required env: `NEXT_PUBLIC_API_URL` (the deployed backend URL) and
+`NEXT_PUBLIC_SITE_URL` (canonical origin — drives metadata, `sitemap.xml`, and
+`robots.txt`).
+
+### Production checklist
+
+- **Serve both apps over HTTPS.** Session cookies are `Secure` + `SameSite=Lax`
+  in production, so auth silently fails over plain HTTP.
+- **`FRONTEND_URL` must match the frontend origin exactly** (comma-separate
+  multiple), or browsers are rejected by CORS.
+- Use `db:push`, never `migrate` — this repo has no migration history (§3).
+- After the first deploy, optionally `pnpm --filter @museum/backend db:seed`,
+  then `POST /constellation/rebuild` to populate the graph.
+
+Any Node host works (containers, Render, Railway, Fly.io); the frontend also
+runs as a standard Next.js app on Vercel. No platform-specific config files are
+committed — wire these commands and env vars into your platform of choice.
+
+---
+
+## 13. Security notes
 
 - All AI/upload endpoints are rate-limited (`@nestjs/throttler`); a global
   default plus per-route limits.
@@ -300,7 +358,7 @@ curator persona prompts, and genome clamping + similarity math.
 
 ---
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 | Symptom | Cause / fix |
 |---------|-------------|
