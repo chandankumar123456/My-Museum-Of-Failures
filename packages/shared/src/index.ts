@@ -71,6 +71,25 @@ export const VisibilityMode = {
 
 export type VisibilityMode = (typeof VisibilityMode)[keyof typeof VisibilityMode];
 
+export const CuratorPersona = {
+  HISTORIAN: 'historian',
+  ENGINEER: 'engineer',
+  THERAPIST: 'therapist',
+  FOUNDER: 'founder',
+  PHILOSOPHER: 'philosopher',
+} as const;
+
+export type CuratorPersona = (typeof CuratorPersona)[keyof typeof CuratorPersona];
+
+export const EvolutionStatus = {
+  FAILED: 'failed',
+  ONGOING: 'ongoing',
+  RECOVERED: 'recovered',
+  SUCCESSFUL: 'successful',
+} as const;
+
+export type EvolutionStatus = (typeof EvolutionStatus)[keyof typeof EvolutionStatus];
+
 export interface ExhibitCreateInput {
   title: string;
   category: ExhibitionCategory;
@@ -89,6 +108,8 @@ export interface ExhibitCreateInput {
   visibilityMode: VisibilityMode;
   emotionalTags: string[];
   roomId?: string;
+  parentFailureId?: string;
+  evolutionStatus?: EvolutionStatus;
 }
 
 export interface ExhibitUpdateInput extends Partial<ExhibitCreateInput> {}
@@ -243,6 +264,147 @@ export interface ExhibitView {
   artifacts?: ArtifactView[];
   reactions?: ReactionView[];
   room?: RoomSummaryView | null;
+  parentFailureId?: string | null;
+  evolutionStatus?: EvolutionStatus | null;
+  recoveredAt?: string | null;
+}
+
+export interface EvolutionNodeView {
+  id: string;
+  exhibitId: string;
+  title: string;
+  category: ExhibitionCategory;
+  painLevel: number;
+  evolutionStatus: EvolutionStatus | null;
+  recoveryStatus: RecoveryStatus;
+  lessonLearned: string;
+  parentFailureId: string | null;
+  createdAt: string;
+  recoveredAt: string | null;
+  children: EvolutionNodeView[];
+}
+
+export interface EvolutionTreeView {
+  rootId: string;
+  focusId: string;
+  tree: EvolutionNodeView;
+  metrics: {
+    attempts: number;
+    retries: number;
+    recovered: boolean;
+    timeToRecoverDays: number | null;
+    lessons: string[];
+  };
+}
+
+export const PRACTICAL_TRAITS = [
+  'overconfidence',
+  'planning',
+  'execution',
+  'communication',
+  'consistency',
+  'patience',
+  'timing',
+  'luck',
+] as const;
+
+export const EMOTIONAL_TRAITS = [
+  'frustration',
+  'regret',
+  'embarrassment',
+  'fear',
+  'hope',
+  'resilience',
+] as const;
+
+export type GenomeTraitMap = Record<string, number>;
+
+export interface FailureGenomeView {
+  id?: string;
+  exhibitId: string;
+  practical: GenomeTraitMap;
+  emotional: GenomeTraitMap;
+  model?: string | null;
+  generatedAt?: string;
+}
+
+export interface GenomeComparisonView {
+  a: FailureGenomeView;
+  b: FailureGenomeView;
+  similarity: {
+    practical: GenomeTraitMap;
+    emotional: GenomeTraitMap;
+    overall: number;
+  };
+}
+
+/* ---- Feature 1: Constellation 2.0 -------------------------------------- */
+
+export const FailureRelationType = {
+  SIMILAR_EMOTION: 'similar_emotion',
+  SIMILAR_LESSON: 'similar_lesson',
+  SIMILAR_CATEGORY: 'similar_category',
+  SIMILAR_CAUSE: 'similar_cause',
+  SAME_USER_JOURNEY: 'same_user_journey',
+} as const;
+
+export type FailureRelationType = (typeof FailureRelationType)[keyof typeof FailureRelationType];
+
+export interface ConstellationNodeView {
+  id: string;
+  exhibitId: string;
+  title: string;
+  category: ExhibitionCategory;
+  painLevel: number;
+  impactScore: number;
+}
+
+export interface ConstellationEdgeView {
+  source: string;
+  target: string;
+  type: FailureRelationType;
+  strength: number;
+}
+
+export interface ConstellationGraphView {
+  nodes: ConstellationNodeView[];
+  edges: ConstellationEdgeView[];
+}
+
+/* ---- Feature 5: Audio Story Exhibits ----------------------------------- */
+
+export const AudioStoryStatus = {
+  UPLOADED: 'uploaded',
+  TRANSCRIBING: 'transcribing',
+  PROCESSING: 'processing',
+  READY: 'ready',
+  FAILED: 'failed',
+} as const;
+
+export type AudioStoryStatus = (typeof AudioStoryStatus)[keyof typeof AudioStoryStatus];
+
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface EmotionPoint {
+  time: number;
+  emotion: string;
+  intensity: number;
+}
+
+export interface AudioStoryView {
+  id?: string;
+  exhibitId: string;
+  status: AudioStoryStatus;
+  url?: string | null;
+  duration?: number | null;
+  transcript?: TranscriptSegment[] | null;
+  summary?: string | null;
+  lessons?: string[];
+  emotionTimeline?: EmotionPoint[] | null;
 }
 
 export interface ExhibitListView {
@@ -257,6 +419,7 @@ export interface AIReflectionView {
   patterns: string[];
   reframing: string;
   observations: string;
+  persona?: CuratorPersona | null;
   createdAt?: string;
 }
 
