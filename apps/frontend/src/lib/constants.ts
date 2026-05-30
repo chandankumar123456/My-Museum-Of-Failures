@@ -52,3 +52,27 @@ export const RECOVERY_STATUSES = [
   { value: 'gave_up', label: 'Gave Up', description: 'I let it go.' },
   { value: 'healing', label: 'Healing', description: 'I am getting better.' },
 ];
+
+
+/**
+ * Curator persona tabs for the exhibit reflection panel (Feature 2).
+ * `value: ''` is the original default curator; the rest map to the backend
+ * CuratorPersona enum.
+ */
+export const CURATOR_PERSONAS = [
+  { value: '', label: 'Curator' },
+  { value: 'historian', label: 'Historian' },
+  { value: 'engineer', label: 'Engineer' },
+  { value: 'therapist', label: 'Therapist' },
+  { value: 'founder', label: 'Founder' },
+  { value: 'philosopher', label: 'Philosopher' },
+] as const;
+
+
+/** Evolution node statuses (Feature 4 — Failure Evolution Tree). */
+export const EVOLUTION_STATUSES = [
+  { value: 'failed', label: 'Failed' },
+  { value: 'ongoing', label: 'Ongoing' },
+  { value: 'recovered', label: 'Recovered' },
+  { value: 'successful', label: 'Successful' },
+] as const;
