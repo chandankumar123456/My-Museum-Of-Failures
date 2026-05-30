@@ -291,9 +291,12 @@ curator persona prompts, and genome clamping + similarity math.
   default plus per-route limits.
 - Helmet sets a strict CSP in production; CORS is restricted to `FRONTEND_URL`.
 - Treat external/audio/transcript content as untrusted user input.
-- The audio and constellation endpoints are currently unauthenticated at the
-  route level (consistent with the rest of the public API); add an auth guard
-  before exposing write endpoints publicly.
+- Write endpoints on the audio and constellation modules are protected by
+  `SessionGuard` (a valid session cookie — anonymous sessions count); their
+  read endpoints stay public. Unhandled errors pass through a global
+  exception filter (5xx logged with request context).
+- `GET /health` is a liveness probe; `GET /health/ready` pings the database
+  (503 when down). Both are exempt from the throttler.
 
 ---
 
