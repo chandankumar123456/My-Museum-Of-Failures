@@ -11,6 +11,9 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: 1
+  # Run checkout/setup-node/pnpm-action-setup on the Node 24 runtime
+  # (Node 20 actions runtime is deprecated; opt in ahead of the cutover).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-test-lint:
