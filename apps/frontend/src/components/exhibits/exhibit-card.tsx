@@ -8,16 +8,17 @@ import { getCategoryLabel, getEndingStatusColor, getExhibitIdDisplay, formatDate
 interface ExhibitCardProps {
   exhibit: ExhibitView;
   index?: number;
+  className?: string;
 }
 
-export function ExhibitCard({ exhibit, index = 0 }: ExhibitCardProps) {
+export function ExhibitCard({ exhibit, index = 0, className = '' }: ExhibitCardProps) {
   const decayStyles = [
     '',
     'opacity-90',
-    'opacity-80',
+    'opacity-85',
     'opacity-70 blur-[0.3px]',
-    'opacity-60 blur-[0.5px]',
-    'opacity-50 blur-[0.8px]',
+    'opacity-60 blur-[0.4px]',
+    'opacity-55 blur-[0.5px]',
   ];
 
   const decayLevel = Math.min(exhibit.decayLevel ?? 0, 5);
@@ -27,56 +28,56 @@ export function ExhibitCard({ exhibit, index = 0 }: ExhibitCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: index * 0.05 }}
+      className={className}
     >
-      <Link href={`/exhibits/${exhibit.id}`}>
+      <Link href={`/exhibits/${exhibit.id}`} className="block h-full">
         <div
-          className={`group relative museum-card p-5 hover:border-ember/30 transition-all duration-500 cursor-pointer ${decayStyles[decayLevel]}`}
+          className={`group relative bg-shadow-surface border-t border-museum-border border-x-0 border-b-0 p-8 rounded-md hover:border-t-ember hover:-translate-y-1 transition-all duration-500 ease-out cursor-pointer h-full flex flex-col justify-between ${decayStyles[decayLevel]}`}
         >
           {decayLevel > 0 && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-sm">
               <div
-                className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-void/20"
+                className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-void-black/25"
                 style={{ opacity: decayLevel * 0.1 }}
               />
             </div>
           )}
 
-          <div className="flex items-start justify-between mb-3">
-            <span className="font-mono text-xs text-whisper-dark">
-              {getExhibitIdDisplay(exhibit.exhibitId)}
-            </span>
-            {exhibit.stillHurts && (
-              <span className="text-xs text-red-400/60" title="Still hurts">
-                still hurts
+          <div>
+            <div className="flex items-start justify-between mb-6">
+              <span className="font-mono text-xs text-whisper-dark">
+                {getExhibitIdDisplay(exhibit.exhibitId)}
               </span>
-            )}
+              {exhibit.stillHurts && (
+                <span className="text-xs text-decay-red/60 font-mono tracking-wider" title="Still hurts">
+                  still hurts
+                </span>
+              )}
+            </div>
+
+            <h3 className="font-serif text-2xl text-on-surface mb-4 group-hover:text-ember transition-colors duration-300 leading-snug">
+              {exhibit.title}
+            </h3>
+
+            <p className="font-sans text-body-md text-whisper-dark line-clamp-3 mb-8 leading-relaxed font-light">
+              {exhibit.story || exhibit.lessonLearned || 'A preserved memory.'}
+            </p>
           </div>
 
-          <h3 className="font-serif text-xl text-whisper mb-2 group-hover:text-ember transition-colors duration-300">
-            {exhibit.title}
-          </h3>
+          <div>
+            <div className="flex flex-wrap items-center gap-3 text-xs pt-4 border-t border-museum-border/40">
+              <span className="px-2.5 py-1 bg-void-black border border-museum-border rounded-sm text-whisper-dark font-mono text-[10px]">
+                {getCategoryLabel(exhibit.category)}
+              </span>
 
-          <p className="text-sm text-whisper-dark line-clamp-2 mb-4 font-light">
-            {exhibit.story || exhibit.lessonLearned || 'A preserved memory.'}
-          </p>
+              <span className={`px-2 py-0.5 rounded-sm font-mono text-[10px] uppercase tracking-wider ${getEndingStatusColor(exhibit.endingStatus)}`}>
+                {exhibit.endingStatus?.replace(/_/g, ' ')}
+              </span>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className="px-2 py-1 bg-void border border-museum-800 rounded-sm text-whisper-dark">
-              {getCategoryLabel(exhibit.category)}
-            </span>
+              <span className="text-whisper-dark/60 font-mono text-[11px]">Pain {exhibit.painLevel}/10</span>
 
-            <span className={getEndingStatusColor(exhibit.endingStatus)}>
-              {exhibit.endingStatus?.replace(/_/g, ' ')}
-            </span>
-
-            <span className="text-museum-600">Pain {exhibit.painLevel}/10</span>
-
-            <span className="text-museum-600 ml-auto">{formatDate(exhibit.createdAt)}</span>
-          </div>
-
-          <div className="mt-3 flex items-center gap-3 text-xs text-museum-700">
-            {exhibit.reactions && <span>{exhibit.reactions.length} reactions</span>}
-            {exhibit.room && <span>{exhibit.room.name}</span>}
+              <span className="text-whisper-dark/60 ml-auto font-mono text-[11px]">{formatDate(exhibit.createdAt)}</span>
+            </div>
           </div>
         </div>
       </Link>
