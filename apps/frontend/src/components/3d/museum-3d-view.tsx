@@ -8,7 +8,7 @@ import { MuseumRoom } from './museum-room-scene';
 
 export function Museum3DView({ roomSlug = 'hall_of_broken_dreams' }: { roomSlug?: string }) {
   return (
-    <div className="w-full h-[600px] rounded-sm overflow-hidden border border-museum-800">
+    <div className="w-full h-[600px] rounded-md overflow-hidden border border-museum-800">
       <Canvas shadows>
         <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 2, 8]} />
