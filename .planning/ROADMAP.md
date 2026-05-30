@@ -381,6 +381,30 @@
 
 ---
 
+### Phase 20: UI/UX Overhaul — Lamplit Archive
+**Goal:** Replace the rejected dark/cinematic/EB-Garamond/ember-orange direction with Lamplit Archive — a bright editorial museum interface anchored by Fraunces serif, Geist sans, brass `#A8794B` accent, and a 3-layer 3D system (ambient shader / per-card artifacts / page set pieces). Per-room atmospheric tints. All 14 routes redesigned in Stitch first, then ported into the actual React tree.
+
+**Waves:**
+- Wave A: Design source of truth — archive prior `.stitch/`, create new Stitch project + design system, write fresh `.stitch/` metadata + DESIGN.md + SITE.md.
+- Wave B: Stitch generation loop — 14 reference screens (5 Tier 1, 3 Tier 2, 6 Tier 3). HTML + PNG download to `.stitch/designs/`.
+- Wave C: Foundations + primitives — rewrite `globals.css` (Lamplit Bone tokens + transitional aliases), `layout.tsx` (Fraunces + Geist + JetBrains Mono), `motion.ts` (single SPRING), `providers.tsx` (Sonner re-theme, light default). Build 11 lamplit primitives in `components/lamplit/`.
+- Wave D: 3D system — single shared `<Canvas>` (root-canvas + lamplit-3d wrapper), Layer 1 ambient shader with per-room tint uniform, Layer 2 6 artifact families + category dispatcher, Layer 3 set-piece registration + landing-hero demonstrator.
+- Wave E: Tier 1 page ports — `/`, `/exhibits`, `/exhibits/[id]`, `/rooms`, `/rooms/[slug]` + supporting components (nav, identity badge, reaction buttons, you-are-not-alone, reflection panel).
+- Wave F: Tier 2 + Tier 3 page ports — `/exhibits/create`, `/constellation`, `/time-capsule`, `/rooms/random-walk`, `/rooms/last-attempts`, `/auth`, `/legacy`, `/curator`, `/about`, `/_not-found`.
+- Wave G: Verification — `tsc --noEmit`, ESLint, `next build`, backend `tsc`. Bundle inspection.
+- Wave H: Documentation — update `STATE.md`, append Phase 20 to `ROADMAP.md`, write `docs/design-system.md`.
+
+**Success Criteria:**
+- All 14 routes render under the Lamplit chrome with no references to the retired `void` / `ember` / `museum-*` colour names in their own JSX.
+- Frontend `tsc`, `lint`, and `next build` all pass.
+- Backend `tsc` still passes (untouched).
+- Single shared `<Canvas>` mounted once at the layout level; pages register a set piece via `<SetPiece>` and the room tint via `setRoomTint()`.
+- Spec at `.planning/phases/20-ui-overhaul/20-CONTEXT.md` and the design-system reference at `docs/design-system.md` are committed.
+
+**Known follow-ups (deferred):** bundle-budget tuning to hit 220 kB gzipped; sculpting the 6 artifact families; remaining 8 page-level set pieces; Lighthouse + reduced-motion audit on real devices; updating the Playwright suite for the new selectors and copy.
+
+---
+
 ## Phase Dependencies
 
 ```
