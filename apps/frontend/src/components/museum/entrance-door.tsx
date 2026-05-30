@@ -11,11 +11,11 @@ export function EntranceDoor() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.98 }}
       >
-        <div className="relative w-48 h-64 border border-museum-700 overflow-hidden rounded-sm bg-void-light">
+        <div className="relative w-48 h-64 border border-museum-700 overflow-hidden rounded-md bg-void-light">
           <div className="absolute inset-0 bg-gradient-to-b from-void-light via-transparent to-void/80" />
 
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4">
-            <div className="w-16 h-24 border-2 border-museum-600 rounded-sm relative">
+            <div className="w-16 h-24 border-2 border-museum-600 rounded-md relative">
               <div className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-3 bg-ember/60 rounded-full" />
             </div>
             <motion.span
