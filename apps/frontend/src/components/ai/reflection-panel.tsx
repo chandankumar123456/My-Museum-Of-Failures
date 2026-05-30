@@ -1,121 +1,185 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { AIReflectionView } from '@museum/shared';
 import { api } from '@/lib/api';
+import { CURATOR_PERSONAS } from '@/lib/constants';
+import { Eyebrow, EngravedDivider, Tag } from '@/components/lamplit';
+import { cn } from '@/lib/utils';
+import { fadeUp } from '@/lib/motion';
 
-interface ReflectionPanelProps {
+/**
+ * Lamplit Archive — ReflectionPanel (Feature 2: Multi-Persona Curators).
+ *
+ * One exhibit, six lenses. The default "Curator" tab auto-generates on mount
+ * (preserving prior behaviour); the five persona tabs (Historian, Engineer,
+ * Therapist, Founder, Philosopher) generate lazily the first time they're
+ * opened and are cached in component state for the session. The backend
+ * additionally persists one reflection per (exhibit, persona), so the LLM is
+ * never called twice for the same lens.
+ *
+ * Visual language is unchanged: Fraunces italic summary, mono-caps engraved
+ * tags for patterns, body-essay reframing/observations.
+ */
+
+interface Props {
   exhibitId: string;
 }
 
-export function ReflectionPanel({ exhibitId }: ReflectionPanelProps) {
-  const [reflection, setReflection] = useState<AIReflectionView | null>(null);
+export function ReflectionPanel({ exhibitId }: Props) {
+  // '' = default curator; other values map to the backend CuratorPersona enum.
+  const [active, setActive] = useState('');
+  const [cache, setCache] = useState<Record<string, AIReflectionView>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const generate = async () => {
-    setLoading(true);
+  const generate = useCallback(
+    async (persona: string) => {
+      setLoading(true);
+      setError('');
+      try {
+        const result = persona
+          ? await api.ai.generatePersonaReflection(exhibitId, persona)
+          : await api.ai.generateReflection(exhibitId);
+        setCache((c) => ({ ...c, [persona]: result as AIReflectionView }));
+      } catch {
+        setError('The curator is silent. Try again later.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [exhibitId],
+  );
+
+  // Auto-generate the default curator reflection on mount (prior behaviour).
+  useEffect(() => {
+    const timer = setTimeout(() => generate(''), 1800);
+    return () => clearTimeout(timer);
+  }, [exhibitId, generate]);
+
+  const selectPersona = (persona: string) => {
+    setActive(persona);
     setError('');
-    try {
-      const result = await api.ai.generateReflection(exhibitId);
-      setReflection(result as AIReflectionView);
-    } catch {
-      setError('The curator is silent. Try again later.');
-    } finally {
-      setLoading(false);
-    }
+    if (!cache[persona]) generate(persona);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(generate, 2000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exhibitId]);
-
-  if (loading && !reflection) {
-    return (
-      <div className="museum-card p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 bg-ember rounded-full animate-pulse" />
-          <span className="text-sm text-whisper-dark">The curator is reflecting...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="museum-card p-6">
-        <p className="text-sm text-museum-600">{error}</p>
-        <button
-          onClick={generate}
-          className="mt-2 text-xs text-ember hover:text-ember-light transition-colors"
-        >
-          Try again
-        </button>
-      </div>
-    );
-  }
-
-  if (!reflection) return null;
+  const reflection = cache[active];
+  const activeMeta = CURATOR_PERSONAS.find((p) => p.value === active);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="museum-card p-6 border-ember/10"
+    <motion.section
+      variants={fadeUp}
+      initial="hidden"
+      animate="visible"
+      className="bg-paper border border-glass-edge rounded-lg p-8 md:p-10 space-y-6"
     >
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">🕯️</span>
-        <h3 className="font-serif text-lg text-whisper">Curator&apos;s Reflection</h3>
+      <Eyebrow>{active ? `Through the ${activeMeta?.label}'s lens` : "Curator's reflection"}</Eyebrow>
+
+      <div
+        role="tablist"
+        aria-label="Curator personas"
+        className="flex flex-wrap gap-x-5 gap-y-2 border-b border-glass-edge pb-3"
+      >
+        {CURATOR_PERSONAS.map((p) => (
+          <button
+            key={p.value || 'curator'}
+            role="tab"
+            type="button"
+            aria-selected={active === p.value}
+            onClick={() => selectPersona(p.value)}
+            className={cn(
+              'relative font-mono text-[10px] uppercase tracking-[0.16em] py-1 transition-colors',
+              active === p.value ? 'text-ink' : 'text-whisper hover:text-brass',
+            )}
+          >
+            {p.label}
+            {active === p.value && (
+              <motion.span
+                layoutId="persona-tab-underline"
+                className="absolute -bottom-[13px] left-0 right-0 h-px bg-brass"
+                transition={{ type: 'spring', stiffness: 110, damping: 22, mass: 0.9 }}
+              />
+            )}
+          </button>
+        ))}
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <p className="text-sm text-whisper font-light leading-relaxed italic">
-            &ldquo;{reflection.emotionalSummary}&rdquo;
-          </p>
+      {loading && !reflection ? (
+        <div className="flex items-center gap-3 py-2">
+          <span className="brass-tick" aria-hidden />
+          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-whisper">
+            {active ? `The ${activeMeta?.label} is reflecting…` : 'The curator is reflecting…'}
+          </span>
         </div>
-
-        {reflection.patterns?.length > 0 && (
-          <div>
-            <p className="text-xs text-museum-600 uppercase tracking-wider mb-2">
-              Patterns Observed
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {reflection.patterns.map((pattern, i) => (
-                <span
-                  key={i}
-                  className="px-2 py-1 bg-void-light border border-museum-800 rounded-sm text-xs text-whisper-dark"
-                >
-                  {pattern}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
+      ) : error && !reflection ? (
         <div>
-          <p className="text-xs text-museum-600 uppercase tracking-wider mb-1">Gentle Reframing</p>
-          <p className="text-sm text-whisper-dark font-light">{reflection.reframing}</p>
-        </div>
-
-        <div>
-          <p className="text-xs text-museum-600 uppercase tracking-wider mb-1">Observations</p>
-          <p className="text-sm text-whisper-dark font-light">{reflection.observations}</p>
-        </div>
-
-        <div className="pt-2">
+          <p className="font-sans text-[14px] text-ink-muted">{error}</p>
           <button
-            onClick={generate}
-            disabled={loading}
-            className="text-xs text-museum-600 hover:text-ember transition-colors"
+            type="button"
+            onClick={() => generate(active)}
+            className="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-brass hover:text-brass-deep transition-colors"
           >
-            {loading ? 'Reflecting...' : 'Request new reflection'}
+            Try again
           </button>
         </div>
-      </div>
-    </motion.div>
+      ) : reflection ? (
+        <div role="tabpanel" className="space-y-6">
+          <blockquote className="font-display italic text-[clamp(1.25rem,1.6vw,1.5rem)] leading-relaxed text-ink">
+            "{reflection.emotionalSummary}"
+          </blockquote>
+
+          {reflection.patterns?.length > 0 && (
+            <div className="space-y-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-whisper">
+                Patterns observed
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {reflection.patterns.map((pattern, i) => (
+                  <Tag key={i} tone="muted">
+                    {pattern}
+                  </Tag>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(reflection.reframing || reflection.observations) && <EngravedDivider />}
+
+          {reflection.reframing && (
+            <div className="space-y-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-whisper">
+                Gentle reframing
+              </span>
+              <p className="font-sans text-[15px] leading-relaxed text-ink-muted max-w-[55ch]">
+                {reflection.reframing}
+              </p>
+            </div>
+          )}
+
+          {reflection.observations && (
+            <div className="space-y-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-whisper">
+                Observations
+              </span>
+              <p className="font-sans text-[15px] leading-relaxed text-ink-muted max-w-[55ch]">
+                {reflection.observations}
+              </p>
+            </div>
+          )}
+
+          <div className="pt-4 border-t border-glass-edge">
+            <button
+              type="button"
+              onClick={() => generate(active)}
+              disabled={loading}
+              className="font-mono text-[10px] uppercase tracking-[0.16em] text-whisper hover:text-brass transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Reflecting…' : 'Request a new reflection'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </motion.section>
   );
 }
