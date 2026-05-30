@@ -3,13 +3,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
 import type { Exhibit } from '@prisma/client';
 
-type ReflectionPayload = {
-  emotionalSummary: string;
-  patterns: string[];
-  reframing: string;
-  observations: string;
-};
-
 /**
  * The model occasionally returns scalars where we asked for arrays
  * (or vice versa). These coercers keep the persistence layer honest
@@ -51,6 +44,61 @@ function asStringArray(value: unknown): string[] {
   return [];
 }
 
+export type ReflectionPersona = 'historian' | 'engineer' | 'therapist' | 'founder' | 'philosopher';
+
+/**
+ * Persona prompt layer. Every persona shares the same JSON output contract
+ * (so persistence and the frontend stay identical) but reads the failure
+ * through a distinct lens. A `null` persona is the original default curator.
+ */
+export const CURATOR_PERSONAS: Record<ReflectionPersona, { label: string; voice: string }> = {
+  historian: {
+    label: 'Historian',
+    voice:
+      'You are the Historian of the Museum of Failures. You read this failure as part of a longer arc — patterns over time, historical context, and how it fits a life still growing. Situate it in time; trace what it echoes and what it foreshadows.',
+  },
+  engineer: {
+    label: 'Engineer',
+    voice:
+      'You are the Engineer of the Museum of Failures. You analyse root causes, technical mistakes, and system design. Be precise and constructive: name the failure modes and the missing safeguards, never the person.',
+  },
+  therapist: {
+    label: 'Therapist',
+    voice:
+      'You are the Therapist of the Museum of Failures. You focus on emotion, coping, and reflection. Validate the feeling, name the grief and fear gently, and surface kinder ways to hold what happened.',
+  },
+  founder: {
+    label: 'Founder',
+    voice:
+      'You are the Founder of the Museum of Failures. You read failure through business lessons, risk, and execution. Be candid and pragmatic about the bets, the timing, and what a next attempt would change.',
+  },
+  philosopher: {
+    label: 'Philosopher',
+    voice:
+      'You are the Philosopher of the Museum of Failures. You explore meaning, identity, and the human experience — what this failure reveals about a person who hopes, tries, and loses.',
+  },
+};
+
+const DEFAULT_CURATOR_VOICE =
+  'You are a melancholic, empathetic museum curator AI. You help people find meaning in their failures. You speak with emotional depth, poetic observation, and gentle wisdom.';
+
+const REFLECTION_JSON_RULES = `Respond with a JSON object whose fields have these EXACT shapes:
+- emotionalSummary: a single string (2-3 sentences, one paragraph).
+- patterns: an array of short strings (each one a single observed pattern).
+- reframing: a single string (one paragraph).
+- observations: a single string (one paragraph). NOT an array.
+Never return arrays for any field other than 'patterns'.`;
+
+export function isReflectionPersona(value: string): value is ReflectionPersona {
+  return Object.prototype.hasOwnProperty.call(CURATOR_PERSONAS, value);
+}
+
+/** Compose the system prompt for a persona (or the default curator when null). */
+export function reflectionSystemPrompt(persona: ReflectionPersona | null): string {
+  const voice = persona ? CURATOR_PERSONAS[persona].voice : DEFAULT_CURATOR_VOICE;
+  return `${voice}\nYou never offer toxic positivity and you never dismiss pain; you acknowledge suffering while finding meaning.\n\n${REFLECTION_JSON_RULES}`;
+}
+
 @Injectable()
 export class AiReflectionService {
   private openai: OpenAI;
@@ -62,6 +110,19 @@ export class AiReflectionService {
   }
 
   async generateReflection(exhibitId: string) {
+    return this.reflectFor(exhibitId, null);
+  }
+
+  async generatePersonaReflection(exhibitId: string, persona: ReflectionPersona) {
+    return this.reflectFor(exhibitId, persona);
+  }
+
+  /**
+   * Cache-aware reflection generation shared by the default curator and every
+   * persona. Returns the persisted row when one already exists for
+   * (exhibit, persona); otherwise generates, persists, and returns it.
+   */
+  private async reflectFor(exhibitId: string, persona: ReflectionPersona | null) {
     const exhibit = await this.prisma.exhibit.findUnique({
       where: { id: exhibitId },
       include: { reactions: true },
@@ -69,41 +130,24 @@ export class AiReflectionService {
 
     if (!exhibit) throw new NotFoundException('Exhibit not found');
 
-    const existingReflection = await this.prisma.aIReflection.findFirst({
-      where: { exhibitId },
-    });
+    const cached = await this.prisma.aIReflection.findFirst({ where: { exhibitId, persona } });
+    if (cached) return cached;
 
-    if (existingReflection) return existingReflection;
-
-    const prompt = this.buildReflectionPrompt(exhibit);
+    // Graceful fallback when no API key — return (unpersisted) so it can be
+    // generated for real once a key is configured.
+    if (!process.env.OPENAI_API_KEY) return this.fallbackReflection(exhibitId, persona);
 
     const completion = await this.openai.chat.completions.create({
       model: process.env.AI_MODEL || 'gpt-4o',
       messages: [
-        {
-          role: 'system',
-          content: `You are a melancholic, empathetic museum curator AI. You help people find meaning in their failures.
-You speak with emotional depth, poetic observation, and gentle wisdom.
-You never offer toxic positivity or dismiss pain. You acknowledge suffering while finding meaning.
-
-Respond with a JSON object whose fields have these EXACT shapes:
-- emotionalSummary: a single string (2-3 sentences, one paragraph).
-- patterns: an array of short strings (each one a single observed pattern).
-- reframing: a single string (one paragraph, gentle reframe).
-- observations: a single string (one paragraph). NOT an array.
-
-Never return arrays for any field other than 'patterns'.`,
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
+        { role: 'system', content: reflectionSystemPrompt(persona) },
+        { role: 'user', content: this.buildReflectionPrompt(exhibit) },
       ],
       response_format: { type: 'json_object' },
     });
 
     const content = completion.choices[0]?.message?.content || '{}';
-    let parsed: Partial<ReflectionPayload> | Record<string, unknown>;
+    let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(content) as Record<string, unknown>;
     } catch {
@@ -113,21 +157,27 @@ Never return arrays for any field other than 'patterns'.`,
     return this.prisma.aIReflection.create({
       data: {
         exhibitId,
-        emotionalSummary: asString(
-          (parsed as Record<string, unknown>).emotionalSummary,
-          'A story of profound human experience.',
-        ),
-        patterns: asStringArray((parsed as Record<string, unknown>).patterns),
-        reframing: asString(
-          (parsed as Record<string, unknown>).reframing,
-          'Every failure carries wisdom within its weight.',
-        ),
-        observations: asString(
-          (parsed as Record<string, unknown>).observations,
-          'The courage to share this is already a form of recovery.',
-        ),
+        persona,
+        emotionalSummary: asString(parsed.emotionalSummary, 'A story of profound human experience.'),
+        patterns: asStringArray(parsed.patterns),
+        reframing: asString(parsed.reframing, 'Every failure carries wisdom within its weight.'),
+        observations: asString(parsed.observations, 'The courage to share this is already a form of recovery.'),
       },
     });
+  }
+
+  private fallbackReflection(exhibitId: string, persona: ReflectionPersona | null) {
+    return {
+      id: undefined,
+      exhibitId,
+      persona,
+      emotionalSummary:
+        'The curator is resting. A reflection will appear here once the museum’s voice returns.',
+      patterns: [] as string[],
+      reframing: '',
+      observations: '',
+      createdAt: new Date().toISOString(),
+    };
   }
 
   async getCuratedExhibitions(limit = 5) {
